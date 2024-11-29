@@ -1,0 +1,195 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ALUMNO
+  MAESTRO
+}
+
+enum EstadoMateria {
+  CURSANDO // Actualmente cursando
+  APROBADA // Completada y aprobada
+  REPROBADA // Completada pero reprobada
+}
+
+enum EstadoSistema {
+  ACTIVO
+  MANTENIMIENTO
+  CIERRE_PERIODO
+}
+
+model SystemState {
+  id        Int           @id @default(1)
+  estado    EstadoSistema @default(ACTIVO)
+  updatedAt DateTime      @updatedAt
+}
+
+model Usuario {
+  id          Int      @id @default(autoincrement())
+  matricula   String   @unique
+  nombre      String
+  apellido    String
+  password    String
+  role        Role     @default(ALUMNO)
+  alumnoFile  Alumno?
+  maestroFile Maestro?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([id, role])
+}
+
+model Alumno {
+  id           Int               @id @default(autoincrement())
+  usuario      Usuario           @relation(fields: [usuarioId], references: [id])
+  usuarioId    Int               @unique
+  cuatrimestre Int               @default(1)
+  pago         Boolean           @default(false)
+  progreso     ProgresoMateria[]
+  grupos       GrupoAlumno[]
+  curso        Curso             @relation(fields: [cursoId], references: [id])
+  cursoId      Int
+
+  @@index([cursoId])
+}
+
+model Maestro {
+  id           Int     @id @default(autoincrement())
+  usuario      Usuario @relation(fields: [usuarioId], references: [id])
+  usuarioId    Int     @unique
+  especialidad String
+  grupos       Grupo[]
+}
+
+model OfertaEducativa {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String
+  nivel       String
+  cursos      Curso[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Curso {
+  id                Int                @id @default(autoincrement())
+  nombre            String
+  descripcion       String
+  duracion          String
+  totalCreditos     Int                @default(0)
+  ofertaEducativa   OfertaEducativa    @relation(fields: [ofertaEducativaId], references: [id])
+  ofertaEducativaId Int
+  materias          CursoMateria[]
+  grupos            Grupo[]
+  alumnos           Alumno[]
+  materiasRequisito MateriaRequisito[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([ofertaEducativaId])
+}
+
+model Materia {
+  id          Int               @id @default(autoincrement())
+  nombre      String
+  descripcion String
+  creditos    Int
+  cursos      CursoMateria[]
+  grupos      Grupo[]
+  progreso    ProgresoMateria[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model CursoMateria {
+  id           Int     @id @default(autoincrement())
+  cursoId      Int
+  materiaId    Int
+  cuatrimestre Int
+  curso        Curso   @relation(fields: [cursoId], references: [id])
+  materia      Materia @relation(fields: [materiaId], references: [id])
+  Grupo        Grupo[]
+
+  @@unique([cursoId, materiaId])
+  @@index([materiaId])
+  @@index([cursoId])
+}
+
+model MateriaRequisito {
+  id           Int   @id @default(autoincrement())
+  curso        Curso @relation(fields: [cursoId], references: [id])
+  cursoId      Int
+  materiaId    Int
+  requisitoId  Int
+  cuatrimestre Int
+
+  @@unique([cursoId, materiaId, requisitoId])
+  @@index([cursoId])
+  @@index([materiaId])
+  @@index([requisitoId])
+}
+
+model Grupo {
+  id             Int           @id @default(autoincrement())
+  nombre         String
+  identificador  String
+  horario        String
+  diasClase      String
+  maestroId      Int
+  cursoMateria   CursoMateria  @relation(fields: [cursoMateriaId], references: [id])
+  cursoMateriaId Int
+  maestro        Maestro       @relation(fields: [maestroId], references: [id])
+  alumnos        GrupoAlumno[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  Curso          Curso?        @relation(fields: [cursoId], references: [id])
+  cursoId        Int?
+  Materia        Materia?      @relation(fields: [materiaId], references: [id])
+  materiaId      Int?
+
+  @@unique([nombre, cursoMateriaId])
+  @@unique([identificador, cursoMateriaId])
+}
+
+model GrupoAlumno {
+  id           Int       @id @default(autoincrement())
+  grupo        Grupo     @relation(fields: [grupoId], references: [id])
+  grupoId      Int
+  alumno       Alumno    @relation(fields: [alumnoId], references: [id])
+  alumnoId     Int
+  calificacion Float?
+  estado       Int       @default(1)
+  fechaFinal   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([grupoId, alumnoId])
+  @@index([alumnoId])
+  @@index([grupoId])
+}
+
+model ProgresoMateria {
+  id            Int           @id @default(autoincrement())
+  alumno        Alumno        @relation(fields: [alumnoId], references: [id])
+  alumnoId      Int
+  materia       Materia       @relation(fields: [materiaId], references: [id])
+  materiaId     Int
+  completado    Boolean       @default(false)
+  calificacion  Float?
+  fechaFinal    DateTime?
+  estadoMateria EstadoMateria @default(CURSANDO)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([alumnoId, materiaId])
+  @@index([alumnoId])
+  @@index([materiaId])
+}
