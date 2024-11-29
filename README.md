@@ -40,7 +40,8 @@ npx prisma migrate dev --name init
 
 ### 6. Crear usuario administrador
 
-### Para ver la documentacion de la ruta ingresar a [Documentacion de swagger]([http://localhost:3000/api-docs)
+### Para ver la documentacion de la ruta ingresar:
+-[Documentacion de swagger]([http://localhost:3000/api-docs)
 
 ### Comando para detener el contenedor:
 ```bash
