@@ -26,7 +26,7 @@ Asegúrate de que Docker esté ejecutándose en tu máquina antes de continuar.
 Ejecuta el siguiente comando para construir las imágenes y levantar los contenedores en segundo plano:
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 Esto levantará tanto la aplicación como la base de datos configurada en el archivo docker-compose.yml.
 
@@ -36,9 +36,15 @@ Esto levantará tanto la aplicación como la base de datos configurada en el arc
 npx prisma migrate dev --name init
 ```
 
-### 4. Ejecutar comando de Prisma: 
+### 5. Ejecutar lso scripts de init.sql que esta adentro de la carpeta prisma
 
+### 6. Crear usuario administrador
+
+### Para ver la documentacion de la ruta ingresar a [Documentacion de swagger]([http://localhost:3000/api-docs)
+
+### Comando para detener el contenedor:
 ```bash
-npx prisma migrate dev --name init
+docker compose down
 ```
+
 
