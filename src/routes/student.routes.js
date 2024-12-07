@@ -83,7 +83,7 @@ studentRouter.patch('/profile', async (req, res) => {
  *                   type: number
  */
 studentRouter.get('/progress', async (req, res) => {
-  const alumnoId = req.user.alumnoFile.id;
+  const alumnoId = req.user.alumnoId;
 
   const progress = await prisma.progresoMateria.findMany({
     where: { alumnoId },
@@ -139,7 +139,7 @@ studentRouter.get('/progress', async (req, res) => {
  *                     type: array
  */
 studentRouter.get('/available-subjects', async (req, res) => {
-  const alumnoId = req.user.alumnoFile.id;
+  const alumnoId = req.user.alumnoId;
   const alumno = await prisma.alumno.findUnique({
     where: { id: alumnoId },
     include: {

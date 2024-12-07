@@ -19,13 +19,3 @@ export const materiaSchema = z.object({
   creditos: z.number().int().positive(),
   requisitosIds: z.array(z.number().int().positive()).optional()
 });
-
-export const createGrupoSchema = z.object({
-  nombre: z.string().min(1),
-  identificador: z.string().min(1),
-  horario: z.string().min(1),
-  diasClase: z.string().min(1),
-  maestroId: z.number().int().positive(),
-  cursoId: z.number().int().positive(),
-  materiaId: z.number().int().positive(),
-});

@@ -1,10 +1,9 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma.js';
-import { authenticate, authorize } from '../middleware/auth.middleware.js';
-import { createUserSchema, updateUserSchema } from '../schemas/user.schema.js';
-import { createGrupoSchema, ofertaEducativaSchema, cursoSchema, materiaSchema } from '../schemas/academic.schema.js';
+import {  ofertaEducativaSchema, cursoSchema, materiaSchema } from '../schemas/academic.schema.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
+import { createGrupoSchema, updateGrupoSchema } from '../schemas/grupo.schema.js';
+import { NotFoundError } from '../lib/errors.js';
 
 export const adminRouter = Router();
 
@@ -175,8 +174,6 @@ adminRouter.delete('/ofertas/:id', async (req, res) => {
  *                 type: string
  *               duracion:
  *                 type: string
- *               totalCreditos:
- *                 type: integer
  *               ofertaEducativaId:
  *                 type: integer
  *     responses:
@@ -507,13 +504,12 @@ adminRouter.delete('/materias/:id', async (req, res) => {
     res.status(404).json({ message: 'Subject not found' });
   }
 });
-
 /**
  * @swagger
  * /api/admin/grupos:
  *   post:
  *     summary: Create a new group
- *     tags: [Admin]
+ *     tags: [Admin - Groups]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -525,68 +521,112 @@ adminRouter.delete('/materias/:id', async (req, res) => {
  *             required:
  *               - nombre
  *               - identificador
- *               - cuatrimestre
- *               - horario
- *               - diasClase
- *               - materiaId
+ *               - cursoMateriaId
  *               - maestroId
  *             properties:
  *               nombre:
  *                 type: string
  *               identificador:
  *                 type: string
- *               horario:
- *                 type: string
- *               diasClase:
- *                 type: string
- *               materiaId:
+ *               cursoMateriaId:
  *                 type: integer
  *               maestroId:
  *                 type: integer
- *     responses:
- *       201:
- *         description: Group created successfully
+ *               horarios:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     dia:
+ *                       type: string
+ *                     horaInicio:
+ *                       type: string
+ *                     horaFin:
+ *                       type: string
  */
-adminRouter.post('/grupos', async (req, res) => {
-  try {
-    // Validar datos de entrada
-    const data = createGrupoSchema.parse(req.body);
+adminRouter.post('/grupos', validateRequest(createGrupoSchema), async (req, res) => {
+  const { body: data } = req;
 
-    // Verificar si existe la relación CursoMateria
-    const cursoMateria = await prisma.cursoMateria.findUnique({
-      where: {
-        cursoId_materiaId: {
-          cursoId: data.cursoId,
-          materiaId: data.materiaId,
-        },
-      },
-    });
+  // Verificar que el maestro existe
+  const maestro = await prisma.maestro.findUnique({
+    where: { id: data.maestroId },
+  });
 
-    // Si no existe, devolver un error
-    if (!cursoMateria) {
-      return res.status(404).json({
-        error: 'La relación entre el curso y la materia no existe.',
-      });
-    }
+  if (!maestro) {
+    throw new NotFoundError('Teacher not found');
+  }
 
-    // Crear el grupo usando cursoMateriaId
-    const grupo = await prisma.grupo.create({
+  // Verificar que CursoMateria existe
+  const cursoMateria = await prisma.cursoMateria.findUnique({
+    where: { id: data.cursoMateriaId },
+    include: {
+      curso: true,
+      materia: true,
+    },
+  });
+
+  if (!cursoMateria) {
+    throw new NotFoundError('CursoMateria not found');
+  }
+
+  // Crear el grupo y sus horarios en una transacción
+  const grupo = await prisma.$transaction(async (tx) => {
+    // Crear el grupo
+    const newGrupo = await tx.grupo.create({
       data: {
         nombre: data.nombre,
         identificador: data.identificador,
-        horario: data.horario,
-        diasClase: data.diasClase,
+        cuatrimestre: cursoMateria.cuatrimestre, // Traer del cursoMateria encontrado
+        cursoMateriaId: cursoMateria.id, // Relación directa
         maestroId: data.maestroId,
-        cursoMateriaId: cursoMateria.id,
+        horarios: data.horarios
+          ? {
+              createMany: {
+                data: data.horarios.map((horario) => ({
+                  dia: horario.dia,
+                  horaInicio: horario.horaInicio,
+                  horaFin: horario.horaFin,
+                })),
+              },
+            }
+          : undefined, // Crear horarios solo si se proporcionaron
+      },
+      include: {
+        cursoMateria: {
+          select: {
+            curso: {
+              select:{
+                nombre:true
+              }
+            },
+            materia: {
+              select: {
+                nombre: true, // Solo incluye el nombre de la materia
+              },
+            },
+          },
+        },
+        maestro: {
+          include: {
+            usuario: {
+              select: {
+                nombre: true,
+                apellido: true,
+              },
+            },
+          },
+        },
+        horarios: true, // Incluir los horarios creados
       },
     });
 
-    res.status(201).json(grupo);
-  } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error.message });
-  }
+    return newGrupo;
+  });
+
+  // Enviar la respuesta con el grupo creado
+  res.status(201).json(grupo);
 });
+
 
 
 /**
@@ -594,7 +634,7 @@ adminRouter.post('/grupos', async (req, res) => {
  * /api/admin/grupos/{id}:
  *   patch:
  *     summary: Update a group
- *     tags: [Admin]
+ *     tags: [Admin - Groups]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -603,7 +643,338 @@ adminRouter.post('/grupos', async (req, res) => {
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID of the group to update
+ */
+adminRouter.patch('/grupos/:id', validateRequest(updateGrupoSchema), async (req, res) => {
+  const { id } = req.params;
+  const data = req.body;
+
+  // Verificar si el maestro existe al actualizar maestroId
+  if (data.maestroId) {
+    const maestro = await prisma.maestro.findUnique({
+      where: { id: data.maestroId },
+    });
+
+    if (!maestro) {
+      throw new NotFoundError('Teacher not found');
+    }
+  }
+
+  const grupo = await prisma.$transaction(async (tx) => {
+    if (data.horarios) {
+      // Eliminar horarios existentes
+      await tx.horarioGrupo.deleteMany({
+        where: { grupoId: parseInt(id) },
+      });
+
+      // Crear nuevos horarios
+      await tx.horarioGrupo.createMany({
+        data: data.horarios.map((horario) => ({
+          ...horario,
+          grupoId: parseInt(id),
+        })),
+      });
+    }
+
+    // Actualizar grupo
+    return tx.grupo.update({
+      where: { id: parseInt(id) },
+      data: {
+        nombre: data.nombre,
+        identificador: data.identificador,
+        maestroId: data.maestroId,
+      },
+      include: {
+        cursoMateria: {
+          select: {
+            curso: true,
+            materia: {
+              select: {
+                nombre: true,
+              },
+            },
+          },
+        },
+        maestro: {
+          include: {
+            usuario: {
+              select: {
+                nombre: true,
+                apellido: true,
+              },
+            },
+          },
+        },
+        horarios: true,
+      },
+    });
+  });
+
+  res.json(grupo);
+});
+
+/**
+ * @swagger
+ * /api/admin/grupos/{id}:
+ *   delete:
+ *     summary: Delete a group and its schedules
+ *     tags: [Admin - Groups]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ */
+adminRouter.delete('/grupos/:id', async (req, res) => {
+  const { id } = req.params;
+
+  await prisma.grupo.delete({
+    where: { id: parseInt(id) },
+  });
+
+  res.json({ message: 'Group deleted successfully' });
+});
+/**
+ * @swagger
+ * /api/admin/grupos/{id}:
+ *   get:
+ *     summary: Get a group by its ID
+ *     tags: [Admin - Groups]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: A group object
+ *       404:
+ *         description: Group not found
+ */
+adminRouter.get('/grupos/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const grupo = await prisma.grupo.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        cursoMateria: {
+          select: {
+            curso: {
+              select: {
+                nombre: true,
+                descripcion: true,
+              },
+            },
+            materia: {
+              select: {
+                nombre: true,
+                descripcion: true,
+                creditos: true,
+              },
+            },
+          },
+        },
+        maestro: {
+          include: {
+            usuario: {
+              select: {
+                nombre: true,
+                apellido: true,
+              },
+            },
+          },
+        },
+        horarios: {
+          select: {
+            dia: true,
+            horaInicio: true,
+            horaFin: true,
+          },
+        },
+        alumnos: {
+          include: {
+            alumno: {
+              include: {
+                usuario: {
+                  select: {
+                    nombre: true,
+                    apellido: true,
+                  },
+                },
+                progreso: {
+                  select: {
+                    materia: {
+                      select: {
+                        nombre: true,
+                      },
+                    },
+                    calificacion: true,
+                    estadoMateria: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!grupo) {
+      return res.status(404).json({ error: 'Grupo no encontrado' });
+    }
+
+    // Transformar los datos al formato solicitado
+    const formattedResponse = {
+      curso: grupo.cursoMateria.curso.nombre,
+      idMateria: grupo.cursoMateria.materia.id,
+      materia: grupo.cursoMateria.materia.nombre,
+      maestro: {
+        nombre: grupo.maestro.usuario.nombre,
+        apellido: grupo.maestro.usuario.apellido
+      },
+      horarios: grupo.horarios.map(horario => ({
+        dia: horario.dia,
+        horaInicio: horario.horaInicio,
+        horaFin: horario.horaFin
+      })),
+      alumnos: grupo.alumnos.map(alumno => ({
+        id: alumno.alumno.id,
+        nombre: alumno.alumno.usuario.nombre,
+        apellido: alumno.alumno.usuario.apellido,
+        cuatrimestre: alumno.alumno.cuatrimestre,
+        pago: alumno.alumno.pago
+      }))
+    };
+
+    return res.status(200).json(formattedResponse);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Ocurrió un error al obtener el grupo' });
+  }
+});
+
+
+/**
+ * @swagger
+ * /api/admin/grupos/curso/{cursoId}:
+ *   get:
+ *     summary: Get all groups for a specific course
+ *     tags: [Admin - Groups]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cursoId
+ *         required: true
+ *         schema:
+ *           type: integer
+ */
+adminRouter.get('/grupos/curso/:cursoId', async (req, res) => {
+  const { cursoId } = req.params;
+
+  const grupos = await prisma.grupo.findMany({
+    where: { cursoMateria: { cursoId: parseInt(cursoId) } },
+    include: {
+      cursoMateria: {
+        select: {
+          curso:{ select:{
+              nombre:true
+          }} ,
+          materia: {
+            select: {
+              nombre: true,
+            },
+          },
+        },
+      },
+      maestro: {
+        include: {
+          usuario: {
+            select: {
+              nombre: true,
+              apellido: true,
+            },
+          },
+        },
+      },
+      horarios: true,
+    },
+  });
+
+  res.json(grupos);
+});
+
+
+/**
+ * @swagger
+ * /api/admin/grupos/curso/{cursoId}/cuatrimestre/{cuatrimestre}:
+ *   get:
+ *     summary: Get all groups for a specific course and quarter
+ *     tags: [Admin - Groups]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cursoId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: cuatrimestre
+ *         required: true
+ *         schema:
+ *           type: integer
+ */
+adminRouter.get('/grupos/curso/:cursoId/cuatrimestre/:cuatrimestre', async (req, res) => {
+  const { cursoId, cuatrimestre } = req.params;
+
+  const grupos = await prisma.grupo.findMany({
+    where: {
+      cursoMateria: { cursoId: parseInt(cursoId) },
+      cuatrimestre: parseInt(cuatrimestre),
+    },
+    include: {
+      cursoMateria: {
+        select: {
+          curso: true,
+          materia: {
+            select: {
+              nombre: true,
+            },
+          },
+        },
+      },
+      maestro: {
+        include: {
+          usuario: {
+            select: {
+              nombre: true,
+              apellido: true,
+            },
+          },
+        },
+      },
+      horarios: true,
+    },
+  });
+
+  res.json(grupos);
+});
+
+/**
+ * @swagger
+ * /api/admin/grupos/agregar-alumnos:
+ *   post:
+ *     summary: Agrega varios alumnos a un grupo específico
+ *     tags: [Admin - Grupos]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -611,125 +982,104 @@ adminRouter.post('/grupos', async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
- *               nombre:
- *                 type: string
- *                 description: Name of the group
- *               identificador:
- *                 type: string
- *                 description: Identifier of the group
- *               materiaId:
+ *               groupId:
  *                 type: integer
- *                 description: ID of the related subject
- *               maestroId:
- *                 type: integer
- *                 description: ID of the teacher assigned to the group
+ *                 description: ID del grupo al que se agregarán los alumnos
+ *                 example: 1
+ *               studentIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: Lista de IDs de los alumnos a agregar
+ *                 example: [1, 2, 3]
  *     responses:
  *       200:
- *         description: Group updated successfully
+ *         description: Alumnos agregados al grupo exitosamente
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 id:
- *                   type: integer
- *                 nombre:
+ *                 message:
  *                   type: string
- *                 identificador:
- *                   type: string
- *                 materia:
- *                   type: object
- *                   properties:
- *                     nombre:
- *                       type: string
- *                     creditos:
- *                       type: integer
- *                 maestro:
- *                   type: object
- *                   properties:
- *                     usuario:
- *                       type: object
- *                       properties:
- *                         nombre:
- *                           type: string
- *                         apellido:
- *                           type: string
+ *                   example: "Alumnos agregados al grupo exitosamente"
  *       400:
- *         description: Invalid request data
- *       404:
- *         description: Group not found
+ *         description: Error en la solicitud
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "El grupo no pertenece al curso del alumno"
+ *       401:
+ *         description: No autorizado
  *       500:
- *         description: Server error
+ *         description: Error interno del servidor
  */
-adminRouter.patch('/:id', validateRequest(createGrupoSchema.partial()), async (req, res) => {
-  const { id } = req.params;
-  const updateData = req.body;
+
+
+
+// Endpoint para agregar alumnos a un grupo
+adminRouter.post('/grupos/agregar-alumnos', async (req, res) => {
+  const { groupId, studentIds } = req.body;
+
+  console.log(groupId,studentIds)
+
+  // Validar entrada
+  if (!groupId || !Array.isArray(studentIds) || studentIds.length === 0) {
+    return res.status(400).json({ error: 'Faltan datos o formato incorrecto.' });
+  }
 
   try {
-    const grupo = await prisma.grupo.update({
-      where: { id: parseInt(id) },
-      data: updateData,
-      include: {
-        materia: {
-          select: {
-            nombre: true,
-            creditos: true
-          }
-        },
-        maestro: {
-          include: {
-            usuario: {
-              select: {
-                nombre: true,
-                apellido: true
-              }
-            }
-          }
-        }
-      }
+    // Obtener información del grupo y su curso relacionado
+    const group = await prisma.grupo.findUnique({
+      where: { id: groupId },
+      include: { cursoMateria: { include: { curso: true } } },
     });
 
-    res.json(grupo);
-  } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Group not found' });
+    if (!group) {
+      return res.status(404).json({ error: 'Grupo no encontrado.' });
     }
-    console.error(error);
-    res.status(500).json({ message: 'Error updating group' });
-  }
-});
 
-/**
- * @swagger
- * /api/admin/grupos/{id}:
- *   delete:
- *     summary: Delete a group
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: Group ID
- *     responses:
- *       200:
- *         description: Group deleted successfully
- *       404:
- *         description: Group not found
- */
-adminRouter.delete('/grupos/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    await prisma.grupo.delete({
-      where: { id: parseInt(id) }
+    // Validar que los alumnos pertenezcan al curso del grupo
+    const alumnos = await prisma.alumno.findMany({
+      where: {
+        id: { in: studentIds },
+      },
+      include: { curso: true },
     });
-    res.json({ message: 'Group deleted successfully' });
+
+    const invalidStudents = alumnos.filter(
+      (alumno) => alumno.cursoId !== group.cursoMateria.curso.id
+    );
+
+    if (invalidStudents.length > 0) {
+      return res.status(400).json({
+        error: 'Algunos alumnos no pertenecen al curso del grupo.',
+        invalidStudentIds: invalidStudents.map((s) => s.id),
+      });
+    }
+
+    // Registrar la relación en la tabla GrupoAlumno
+    const transactions = studentIds.map((studentId) =>
+      prisma.grupoAlumno.create({
+        data: {
+          grupoId: groupId,
+          alumnoId: studentId,
+        },
+      })
+    );
+
+    await prisma.$transaction(transactions);
+
+    res.status(200).json({ message: 'Alumnos agregados al grupo exitosamente.' });
   } catch (error) {
-    res.status(404).json({ message: 'Group not found' });
+    console.error(error);
+    res.status(500).json({ error: 'Ocurrió un error al agregar alumnos al grupo.' });
   }
 });
+
+
 export default adminRouter;

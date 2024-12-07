@@ -37,6 +37,7 @@ materiaRoutes.get('/', async (req, res) => {
         id: true,
         nombre: true,
         creditos: true,
+        descripcion:true
       },
     });
 

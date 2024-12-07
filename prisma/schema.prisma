@@ -88,7 +88,6 @@ model Curso {
   ofertaEducativa   OfertaEducativa    @relation(fields: [ofertaEducativaId], references: [id])
   ofertaEducativaId Int
   materias          CursoMateria[]
-  grupos            Grupo[]
   alumnos           Alumno[]
   materiasRequisito MateriaRequisito[]
   createdAt         DateTime           @default(now())
@@ -103,7 +102,6 @@ model Materia {
   descripcion String
   creditos    Int
   cursos      CursoMateria[]
-  grupos      Grupo[]
   progreso    ProgresoMateria[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -116,7 +114,7 @@ model CursoMateria {
   cuatrimestre Int
   curso        Curso   @relation(fields: [cursoId], references: [id])
   materia      Materia @relation(fields: [materiaId], references: [id])
-  Grupo        Grupo[]
+  grupos       Grupo[]
 
   @@unique([cursoId, materiaId])
   @@index([materiaId])
@@ -138,25 +136,33 @@ model MateriaRequisito {
 }
 
 model Grupo {
-  id             Int           @id @default(autoincrement())
+  id             Int            @id @default(autoincrement())
   nombre         String
-  identificador  String
-  horario        String
-  diasClase      String
+  identificador  String         @unique
+  maestro        Maestro        @relation(fields: [maestroId], references: [id])
   maestroId      Int
+  alumnos        GrupoAlumno[]
+  horarios       HorarioGrupo[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   cursoMateria   CursoMateria  @relation(fields: [cursoMateriaId], references: [id])
   cursoMateriaId Int
-  maestro        Maestro       @relation(fields: [maestroId], references: [id])
-  alumnos        GrupoAlumno[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  Curso          Curso?        @relation(fields: [cursoId], references: [id])
-  cursoId        Int?
-  Materia        Materia?      @relation(fields: [materiaId], references: [id])
-  materiaId      Int?
 
-  @@unique([nombre, cursoMateriaId])
-  @@unique([identificador, cursoMateriaId])
+  @@index([maestroId])
+}
+
+model HorarioGrupo {
+  id         Int      @id @default(autoincrement())
+  grupo      Grupo    @relation(fields: [grupoId], references: [id])
+  grupoId    Int
+  dia        String // Ejemplo: "Lunes", "Martes", etc.
+  horaInicio String // Formato HH:mm (ejemplo: "08:00")
+  horaFin    String // Formato HH:mm (ejemplo: "10:00")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([grupoId, dia, horaInicio]) // Evita solapamiento de horarios en un grupo
+  @@index([grupoId])
 }
 
 model GrupoAlumno {

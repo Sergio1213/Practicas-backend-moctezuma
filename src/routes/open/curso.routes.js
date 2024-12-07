@@ -102,26 +102,32 @@ cursoRoutes.get('/', async (req, res) => {
  */
 cursoRoutes.get('/:id', async (req, res) => {
   const { id } = req.params;
-  
+
   if (!id) {
     return res.status(400).json({ error: 'ID is required.' });
   }
-  
+
   try {
-    const cursoMaterias = await prisma.cursoMateria.findMany({
-      where: {
-        cursoId: parseInt(id),
+    // Obtener el curso por su ID
+    const curso = await prisma.curso.findUnique({
+      where: { id: parseInt(id, 10) },
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        duracion: true,
+        totalCreditos: true,
       },
+    });
+
+    if (!curso) {
+      return res.status(404).json({ error: 'Curso not found.' });
+    }
+
+    // Obtener las materias relacionadas con el curso
+    const cursoMaterias = await prisma.cursoMateria.findMany({
+      where: { cursoId: parseInt(id, 10) },
       include: {
-        curso: {
-          select: {
-            id: true,
-            nombre: true,
-            descripcion: true,
-            duracion: true,
-            totalCreditos: true,
-          },
-        },
         materia: {
           select: {
             id: true,
@@ -131,31 +137,23 @@ cursoRoutes.get('/:id', async (req, res) => {
         },
       },
     });
-  
-    if (cursoMaterias.length === 0) {
-      return res.status(404).json({ error: 'No materias found for the specified course.' });
-    }
-  
+
+    // Construir la respuesta
     const response = {
-      curso: {
-        id: cursoMaterias[0].curso.id,
-        nombre: cursoMaterias[0].curso.nombre,
-        descripcion: cursoMaterias[0].curso.descripcion,
-        duracion: cursoMaterias[0].curso.duracion,
-        totalCreditos: cursoMaterias[0].curso.totalCreditos,
-      },
+      curso,
       materias: cursoMaterias.map((cm) => ({
         id: cm.materia.id,
         nombre: cm.materia.nombre,
         creditos: cm.materia.creditos,
       })),
     };
-  
+
     res.status(200).json(response);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'An error occurred while retrieving the Curso.' });
   }
 });
+
 
 export default cursoRoutes;

@@ -5,7 +5,7 @@ export const createUserSchema = z.object({
     matricula: z.string().min(1),
     nombre: z.string().min(1),
     apellido: z.string().min(1),
-    role: z.enum(['ADMIN', 'ALUMNO', 'MAESTRO']),
+    role: z.enum(['ADMIN', 'ALUMNO', 'MAESTRO']).optional(),
     especialidad: z.string().optional(),
     cursoId: z.number().optional(),
   }),

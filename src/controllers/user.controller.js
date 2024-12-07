@@ -15,17 +15,23 @@ function formatResponse(data, statusCode = 200) {
     }
   }
   
-export const createUser = async (req, res) => {
+  export const createUser = async (req, res) => {
     try {
       const { matricula, nombre, apellido, role, cursoId, especialidad } = req.body;
   
-      // Verifica si cursoId es requerido y válido cuando el rol es ALUMNO
+      if (!matricula || !nombre || !apellido ) {
+        return res.status(400).json({ message: 'Faltan datos obligatorios.' });
+      }
+  
+      // Validación según el rol
       if (role === 'ALUMNO' && !cursoId) {
         return res.status(400).json({ message: 'El campo cursoId es obligatorio para el rol ALUMNO.' });
       }
   
+      // Hashear la matrícula como contraseña
       const hashedPassword = await bcrypt.hash(matricula, 10);
   
+      // Crear usuario con relaciones condicionales
       const user = await prisma.usuario.create({
         data: {
           matricula,
@@ -33,27 +39,29 @@ export const createUser = async (req, res) => {
           apellido,
           password: hashedPassword,
           role,
-          ...(role === 'ALUMNO' && {
-            alumnoFile: {
-              create: {
-                cursoId, // Relacionar con el curso correspondiente
-              },
+          alumnoFile: role === 'ALUMNO' || !role ? {
+            create: {
+              cursoId: cursoId,
+              cuatrimestre: 1, // Valor predeterminado
+              pago: false,
             },
-          }),
-          ...(role === 'MAESTRO' && {
-            maestroFile: {
-              create: {
-                especialidad: especialidad || '',
-              },
+          } : undefined,
+          maestroFile: role === 'MAESTRO' ? {
+            create: {
+              especialidad: especialidad || '',
             },
-          }),
+          } : undefined,
+        },
+        include: {
+          alumnoFile: true,
+          maestroFile: true,
         },
       });
   
       res.status(201).json(user);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: 'Error creating user', error: error.message });
+      res.status(500).json({ message: 'Error al crear el usuario', error: error.message });
     }
   };
   
@@ -96,7 +104,9 @@ export const getAllAlumnos = async (req, res) => {
       const alumnos = await prisma.usuario.findMany({
         where: {
           role: 'ALUMNO',  // Filtra por el rol de 'alumno'
-        },
+        }, include:{
+          alumnoFile: true
+        }
       });
   
         // Usar la función de formateo para la respuesta

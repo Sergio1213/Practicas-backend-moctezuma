@@ -25,6 +25,8 @@ export const cursoMateriaRoutes = Router();
  *                 type: integer
  *               materiaId:
  *                 type: integer
+*               cuatrimestre:
+ *                 type: integer
  *     responses:
  *       201:
  *         description: Course-subject relation created
@@ -119,7 +121,7 @@ cursoMateriaRoutes.delete('/:id', async (req, res) => {
 
 /**
  * @swagger
- * /api/admin/curso-materia:
+ * /api/admin/curso-materia/{id}:
  *   patch:
  *     summary: Update a course-subject relation
  *     tags: [Admin Course-Subject Relations]
@@ -153,43 +155,51 @@ cursoMateriaRoutes.delete('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-cursoMateriaRoutes.patch('/', async (req, res) => {
-  const { cursoId, materiaId, newCursoId, newMateriaId } = req.body;
-
-  if (!cursoId || !materiaId) {
-    return res.status(400).json({ error: 'cursoId and materiaId are required.' });
-  }
+cursoMateriaRoutes.patch('/:id', async (req, res) => {
+  const { id } = req.params; // Identificar el registro
+  const { cursoId, materiaId, cuatrimestre } = req.body; // Nuevos valores
 
   try {
+    // Verificar si el registro de CursoMateria existe
     const cursoMateria = await prisma.cursoMateria.findUnique({
-      where: {
-        cursoId_materiaId: {
-          cursoId,
-          materiaId
-        }
-      }
+      where: { id: parseInt(id, 10) }, // Asegurar que el id sea un número
     });
 
     if (!cursoMateria) {
-      return res.status(404).json({ error: 'Course and subject are not linked or do not exist.' });
+      return res.status(404).json({ error: 'CursoMateria not found.' });
     }
 
-    const updatedCursoMateria = await prisma.cursoMateria.update({
-      where: {
-        cursoId_materiaId: {
-          cursoId,
-          materiaId
-        }
-      },
-      data: {
-        cursoId: newCursoId || cursoId,
-        materiaId: newMateriaId || materiaId
+    // Verificar existencia del nuevo curso si se proporciona
+    if (cursoId) {
+      const cursoExists = await prisma.curso.findUnique({ where: { id: cursoId } });
+      if (!cursoExists) {
+        return res.status(400).json({ error: `Curso with id ${cursoId} does not exist.` });
       }
+    }
+
+    // Verificar existencia de la nueva materia si se proporciona
+    if (materiaId) {
+      const materiaExists = await prisma.materia.findUnique({ where: { id: materiaId } });
+      if (!materiaExists) {
+        return res.status(400).json({ error: `Materia with id ${materiaId} does not exist.` });
+      }
+    }
+
+    // Actualizar el registro
+    const updatedCursoMateria = await prisma.cursoMateria.update({
+      where: { id: parseInt(id, 10) },
+      data: {
+        cursoId: cursoId || cursoMateria.cursoId,
+        materiaId: materiaId || cursoMateria.materiaId,
+        cuatrimestre: cuatrimestre !== undefined ? cuatrimestre : cursoMateria.cuatrimestre,
+      },
     });
 
     res.status(200).json(updatedCursoMateria);
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while updating the CursoMateria relation.' });
+    console.error(error);
+    res.status(500).json({ error: 'An error occurred while updating CursoMateria.' });
   }
 });
+
 export default cursoMateriaRoutes;
