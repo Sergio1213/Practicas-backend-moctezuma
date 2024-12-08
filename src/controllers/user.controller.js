@@ -124,19 +124,31 @@ export const getAllAlumnos = async (req, res) => {
     try {
       const maestros = await prisma.usuario.findMany({
         where: {
-          role: 'MAESTRO',  // Filtra por el rol de 'maestro'
+          role: 'MAESTRO', // Filtra por el rol de 'MAESTRO'
+        },
+        include: {
+          maestroFile: { // Incluye los datos relacionados de Maestro
+            select: {
+              id: true, // Incluye el id de la tabla Maestro
+              especialidad: true, // Incluye la especialidad
+            },
+          },
         },
       });
   
-       // Usar la función de formateo para la respuesta
-       const response = formatResponse(maestros);
-
-       // Enviar la respuesta formateada
-       return res.status(200).json(response);
-
+      // Formatear la respuesta para incluir el ID de Maestro
+      const response = maestros.map((maestro) => ({
+        nombre: maestro.nombre,
+        apellido: maestro.apellido,
+        id: maestro.maestroFile?.id, // ID de la tabla Maestro
+        especialidad: maestro.maestroFile?.especialidad,
+      }));
+  
+      // Enviar la respuesta formateada
+      return res.status(200).json(response);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: 'Error fetching maestros' });
+      return res.status(500).json({ message: 'Error fetching maestros' });
     }
   };
   
