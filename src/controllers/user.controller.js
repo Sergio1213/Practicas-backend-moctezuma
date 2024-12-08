@@ -138,6 +138,7 @@ export const getAllAlumnos = async (req, res) => {
   
       // Formatear la respuesta para incluir el ID de Maestro
       const response = maestros.map((maestro) => ({
+        usuarioId: maestro.id, // ID de la tabla Usuario
         nombre: maestro.nombre,
         apellido: maestro.apellido,
         id: maestro.maestroFile?.id, // ID de la tabla Maestro

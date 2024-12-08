@@ -44,9 +44,8 @@ app.use('/api/cursos', cursoRoutes);
 app.use('/api/curso-materia', cursoMateriaRoutesOpen);
 app.use('/api/ofertas', ofertaEducativaRoutes);
 app.use('/api/teachers/grupos', authenticate, authorize('MAESTRO'),grupoMaestroRouter);
-app.use('/api/teachers/profile',authenticate, authorize('MAESTRO'), profileTeacherRouter);
+app.use('/api/teachers/profile',authenticate, authorize('MAESTRO', 'ADMIN'), profileTeacherRouter);
 app.use('/api/teachers/grade',authenticate, authorize('MAESTRO'), gradeRouter);
-
 
 app.use(errorHandler);
 

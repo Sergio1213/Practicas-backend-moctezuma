@@ -46,7 +46,7 @@ profileTeacherRouter.get('/', async (req, res) => {
 
 /**
  * @swagger
- * /api/teachers/profile:
+ * /api/teachers/profile/{teacherId}:
  *   patch:
  *     summary: Update teacher's profile
  *     tags: [Teacher - Profile]
@@ -66,43 +66,60 @@ profileTeacherRouter.get('/', async (req, res) => {
  *               especialidad:
  *                 type: string
  */
-profileTeacherRouter.patch('/', validateRequest(updateTeacherSchema), async (req, res) => {
-  const teacherId = req.user.maestroFile.id;
+profileTeacherRouter.patch('/:teacherId', validateRequest(updateTeacherSchema), async (req, res) => {
+  const teacherId = parseInt(req.params.teacherId, 10); // Obtener el ID del maestro desde los parÃ¡metros
   const { nombre, apellido, especialidad } = req.body;
 
-  const updatedProfile = await prisma.$transaction(async (tx) => {
-    if (nombre || apellido) {
-      await tx.usuario.update({
-        where: { id: req.user.id },
-        data: { 
-          nombre: nombre || undefined,
-          apellido: apellido || undefined
-        }
-      });
-    }
+  try {
+    const updatedProfile = await prisma.$transaction(async (tx) => {
+      // Actualizar datos del usuario si se proporciona nombre o apellido
+      if (nombre || apellido) {
+        const maestro = await tx.maestro.findUnique({
+          where: { id: teacherId },
+          include: { usuario: true },
+        });
 
-    if (especialidad) {
-      await tx.maestro.update({
-        where: { id: teacherId },
-        data: { especialidad }
-      });
-    }
-
-    return tx.maestro.findUnique({
-      where: { id: teacherId },
-      include: {
-        usuario: {
-          select: {
-            matricula: true,
-            nombre: true,
-            apellido: true
-          }
+        if (!maestro) {
+          throw new Error(`Maestro con ID ${teacherId} no encontrado`);
         }
+
+        await tx.usuario.update({
+          where: { id: maestro.usuarioId },
+          data: { 
+            nombre: nombre || undefined,
+            apellido: apellido || undefined,
+          },
+        });
       }
-    });
-  });
 
-  res.json(updatedProfile);
+      // Actualizar la especialidad del maestro si se proporciona
+      if (especialidad) {
+        await tx.maestro.update({
+          where: { id: teacherId },
+          data: { especialidad },
+        });
+      }
+
+      // Retornar el perfil actualizado del maestro
+      return tx.maestro.findUnique({
+        where: { id: teacherId },
+        include: {
+          usuario: {
+            select: {
+              matricula: true,
+              nombre: true,
+              apellido: true,
+            },
+          },
+        },
+      });
+    });
+
+    res.json(updatedProfile);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
 });
 
 export default profileTeacherRouter;

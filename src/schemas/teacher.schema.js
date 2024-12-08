@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
 export const updateTeacherSchema = z.object({
-  nombre: z.string().min(1).optional(),
-  apellido: z.string().min(1).optional(),
-  especialidad: z.string().min(1).optional()
+  body: z.object({
+    nombre: z.string().min(1).optional(),
+    apellido: z.string().min(1).optional(),
+    especialidad: z.string().min(1).optional()
+  })
 }).refine(
   data => Object.keys(data).length > 0,
   {
