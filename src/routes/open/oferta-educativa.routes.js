@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import { prisma } from '../../lib/prisma.js';
+import { Router } from "express";
+import { prisma } from "../../lib/prisma.js";
 
 export const ofertaEducativaRoutes = Router();
 
@@ -48,11 +48,11 @@ export const ofertaEducativaRoutes = Router();
  *       500:
  *         description: Server error
  */
-ofertaEducativaRoutes.get('/:id', async (req, res) => {
+ofertaEducativaRoutes.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   if (!id) {
-    return res.status(400).json({ error: 'ID is required.' });
+    return res.status(400).json({ error: "ID is required." });
   }
 
   try {
@@ -64,12 +64,16 @@ ofertaEducativaRoutes.get('/:id', async (req, res) => {
     });
 
     if (!ofertaEducativa) {
-      return res.status(404).json({ error: 'OfertaEducativa not found.' });
+      return res.status(404).json({ error: "OfertaEducativa not found." });
     }
 
     res.status(200).json(ofertaEducativa);
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while retrieving the OfertaEducativa.' });
+    res
+      .status(500)
+      .json({
+        error: "An error occurred while retrieving the OfertaEducativa.",
+      });
   }
 });
 
@@ -111,21 +115,20 @@ ofertaEducativaRoutes.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-ofertaEducativaRoutes.get('/', async (req, res) => {
+ofertaEducativaRoutes.get("/", async (req, res) => {
   try {
     const ofertasEducativas = await prisma.ofertaEducativa.findMany({
       include: {
         cursos: true,
       },
     });
-
-    if (!ofertasEducativas.length) {
-      return res.status(404).json({ error: 'No OfertaEducativa records found.' });
-    }
-
     res.status(200).json(ofertasEducativas);
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while retrieving OfertaEducativa records.' });
+    res
+      .status(500)
+      .json({
+        error: "An error occurred while retrieving OfertaEducativa records.",
+      });
   }
 });
 

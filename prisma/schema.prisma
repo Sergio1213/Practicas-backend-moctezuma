@@ -39,6 +39,7 @@ model Usuario {
   apellido    String
   password    String
   role        Role     @default(ALUMNO)
+  status     Boolean @default(true) // Activo o inactivo
   alumnoFile  Alumno?
   maestroFile Maestro?
   createdAt   DateTime @default(now())
