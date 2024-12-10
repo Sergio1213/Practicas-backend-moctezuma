@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import { prisma } from '../../lib/prisma.js';
+import { Router } from "express";
+import { prisma } from "../../lib/prisma.js";
 
 export const cursoMateriaRoutesOpen = Router();
 
@@ -51,11 +51,11 @@ export const cursoMateriaRoutesOpen = Router();
  *       500:
  *         description: Server error
  */
-cursoMateriaRoutesOpen.get('/:id', async (req, res) => {
+cursoMateriaRoutesOpen.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   if (!id) {
-    return res.status(400).json({ error: 'ID is required.' });
+    return res.status(400).json({ error: "ID is required." });
   }
 
   try {
@@ -68,12 +68,18 @@ cursoMateriaRoutesOpen.get('/:id', async (req, res) => {
     });
 
     if (!cursoMateria) {
-      return res.status(404).json({ error: 'CursoMateria relation not found.' });
+      return res
+        .status(404)
+        .json({ error: "CursoMateria relation not found." });
     }
 
     res.status(200).json(cursoMateria);
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while retrieving the CursoMateria relation.' });
+    res
+      .status(500)
+      .json({
+        error: "An error occurred while retrieving the CursoMateria relation.",
+      });
   }
 });
 
@@ -115,38 +121,42 @@ cursoMateriaRoutesOpen.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-cursoMateriaRoutesOpen.get('/curso/:cursoId', async (req, res) => {
+cursoMateriaRoutesOpen.get("/curso/:cursoId", async (req, res) => {
   const { cursoId } = req.params;
-  // Obtener el nombre del curso
-const curso = await prisma.curso.findUnique({
-  where: { id: parseInt(cursoId) },
-  select: {
-    nombre: true, // Solo seleccionamos el nombre del curso
-  },
-});
 
-if (!curso) {
-  return res.status(404).json({ error: 'Curso not found.' });
-}
+  // Obtener el nombre del curso
+  const curso = await prisma.curso.findUnique({
+    where: { id: parseInt(cursoId) },
+    select: {
+      nombre: true, // Solo seleccionamos el nombre del curso
+    },
+  });
+
+  if (!curso) {
+    return res.status(404).json({ error: "Curso not found." });
+  }
 
   try {
     const cursoMaterias = await prisma.cursoMateria.findMany({
       where: { cursoId: parseInt(cursoId) },
       include: {
-        materia: true,
+        materia: true, // Incluir los datos de la materia relacionada
       },
     });
 
-    if (!cursoMaterias.length) {
-      return res.status(404).json({ error: 'No relations found for the given course.' });
-    }
-
     res.status(200).json({
       curso: curso.nombre,
-      materias: cursoMaterias.map(cm => cm.materia),
+      materias: cursoMaterias.map((cm) => ({
+        materia: cm.materia, // Información completa de la materia
+        cuatrimestre: cm.cuatrimestre, // Agregar el cuatrimestre
+      })),
     });
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while retrieving the CursoMateria relations.' });
+    res
+      .status(500)
+      .json({
+        error: "An error occurred while retrieving the CursoMateria relations.",
+      });
   }
 });
 
@@ -188,7 +198,7 @@ if (!curso) {
  *       500:
  *         description: Server error
  */
-cursoMateriaRoutesOpen.get('/materia/:materiaId', async (req, res) => {
+cursoMateriaRoutesOpen.get("/materia/:materiaId", async (req, res) => {
   const { materiaId } = req.params;
 
   const materia = await prisma.materia.findUnique({
@@ -199,9 +209,8 @@ cursoMateriaRoutesOpen.get('/materia/:materiaId', async (req, res) => {
   });
 
   if (!materia) {
-    return res.status(404).json({ error: 'Materia not found.' });
+    return res.status(404).json({ error: "Materia not found." });
   }
-  
 
   try {
     const cursoMaterias = await prisma.cursoMateria.findMany({
@@ -212,15 +221,21 @@ cursoMateriaRoutesOpen.get('/materia/:materiaId', async (req, res) => {
     });
 
     if (!cursoMaterias.length) {
-      return res.status(404).json({ error: 'No relations found for the given subject.' });
+      return res
+        .status(404)
+        .json({ error: "No relations found for the given subject." });
     }
 
     res.status(200).json({
       materia: materia.nombre,
-      cursos: cursoMaterias.map(cm => cm.curso),
+      cursos: cursoMaterias.map((cm) => cm.curso),
     });
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while retrieving the CursoMateria relations.' });
+    res
+      .status(500)
+      .json({
+        error: "An error occurred while retrieving the CursoMateria relations.",
+      });
   }
 });
 

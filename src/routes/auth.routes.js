@@ -1,10 +1,10 @@
-import { Router } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { prisma } from '../lib/prisma.js';
-import { authenticate } from '../middleware/auth.middleware.js';
-import { loginSchema, changePasswordSchema } from '../schemas/auth.schema.js';
-import { UnauthorizedError } from '../lib/errors.js';
+import { Router } from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { prisma } from "../lib/prisma.js";
+import { authenticate } from "../middleware/auth.middleware.js";
+import { loginSchema, changePasswordSchema } from "../schemas/auth.schema.js";
+import { UnauthorizedError } from "../lib/errors.js";
 
 export const authRouter = Router();
 
@@ -55,39 +55,41 @@ export const authRouter = Router();
  *       401:
  *         description: Invalid credentials
  */
-authRouter.post('/login', async (req, res) => {
+authRouter.post("/login", async (req, res) => {
   const { matricula, password } = loginSchema.parse(req.body);
 
-
-  
-  const user = await prisma.usuario.findUnique({ where: { matricula },
-  include:{
-    alumnoFile:{
-      include:{
-        curso:true,
-      }
-    }
-  }
+  const user = await prisma.usuario.findUnique({
+    where: { matricula },
+    include: {
+      alumnoFile: {
+        include: {
+          curso: true,
+        },
+      },
+    },
   });
-  if (!user || !await bcrypt.compare(password, user.password)) {
-    throw new UnauthorizedError('Invalid credentials');
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    throw new UnauthorizedError("Invalid credentials");
   }
 
   const token = jwt.sign(
     { id: user.id, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: '24h' }
+    { expiresIn: "24h" }
   );
 
-  res.json({ token, user: { 
-    id: user.id,
-    matricula: user.matricula,
-    nombre: user.nombre,
-    role: user.role,
-    ...(user.role === 'ALUMNO' && {
-      curso: user.alumnoFile?.curso?.nombre || null, // Añade el cursoId si el rol es ALUMNO
-    }),
-  }});
+  res.json({
+    token,
+    user: {
+      id: user.id,
+      matricula: user.matricula,
+      nombre: user.nombre,
+      role: user.role,
+      ...(user.role === "ALUMNO" && {
+        curso: user.alumnoFile?.curso?.nombre || null, // Añade el cursoId si el rol es ALUMNO
+      }),
+    },
+  });
 });
 
 /**
@@ -118,23 +120,81 @@ authRouter.post('/login', async (req, res) => {
  *       401:
  *         description: Current password is incorrect
  */
-authRouter.patch('/change-password', authenticate, async (req, res) => {
+authRouter.patch("/change-password", authenticate, async (req, res) => {
   const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
-  
+
   const user = await prisma.usuario.findUnique({
-    where: { id: req.user.id }
+    where: { id: req.user.id },
   });
 
-  if (!await bcrypt.compare(currentPassword, user.password)) {
-    throw new UnauthorizedError('Current password is incorrect');
+  if (!(await bcrypt.compare(currentPassword, user.password))) {
+    throw new UnauthorizedError("Current password is incorrect");
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   await prisma.usuario.update({
     where: { id: req.user.id },
-    data: { password: hashedPassword }
+    data: { password: hashedPassword },
   });
 
-  res.json({ message: 'Password updated successfully' });
+  res.json({ message: "Password updated successfully" });
 });
+
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   get:
+ *     summary: Fetch authenticated user profile
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 matricula:
+ *                   type: string
+ *                 nombre:
+ *                   type: string
+ *                 role:
+ *                   type: string
+ *                 curso:
+ *                   type: string
+ *                   nullable: true
+ *       401:
+ *         description: Unauthorized
+ */
+
+authRouter.get("/profile", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id; // ID extraído del token JWT por el middleware de autenticación
+
+    const user = await prisma.usuario.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedError("User not found");
+    }
+
+    res.json({
+      id: user.id,
+      matricula: user.matricula,
+      nombre: user.nombre,
+      apellido: user.apellido,
+      role: user.role,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error retrieving profile", error: error.message });
+  }
+});
+
 export default authRouter;

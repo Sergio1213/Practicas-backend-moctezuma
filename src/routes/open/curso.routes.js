@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import { prisma } from '../../lib/prisma.js';
+import { Router } from "express";
+import { prisma } from "../../lib/prisma.js";
 
 export const cursoRoutes = Router();
 
@@ -36,15 +36,15 @@ export const cursoRoutes = Router();
  *       500:
  *         description: Server error
  */
-cursoRoutes.get('/', async (req, res) => {
+cursoRoutes.get("/", async (req, res) => {
   try {
     const cursos = await prisma.curso.findMany();
-    if (!cursos.length) {
-      return res.status(404).json({ error: 'No Curso records found.' });
-    }
+
     res.status(200).json(cursos);
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while retrieving Curso records.' });
+    res
+      .status(500)
+      .json({ error: "An error occurred while retrieving Curso records." });
   }
 });
 
@@ -100,11 +100,11 @@ cursoRoutes.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-cursoRoutes.get('/:id', async (req, res) => {
+cursoRoutes.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   if (!id) {
-    return res.status(400).json({ error: 'ID is required.' });
+    return res.status(400).json({ error: "ID is required." });
   }
 
   try {
@@ -121,7 +121,7 @@ cursoRoutes.get('/:id', async (req, res) => {
     });
 
     if (!curso) {
-      return res.status(404).json({ error: 'Curso not found.' });
+      return res.status(404).json({ error: "Curso not found." });
     }
 
     // Obtener las materias relacionadas con el curso
@@ -151,9 +151,10 @@ cursoRoutes.get('/:id', async (req, res) => {
     res.status(200).json(response);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'An error occurred while retrieving the Curso.' });
+    res
+      .status(500)
+      .json({ error: "An error occurred while retrieving the Curso." });
   }
 });
-
 
 export default cursoRoutes;
