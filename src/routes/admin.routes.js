@@ -576,7 +576,6 @@ adminRouter.post('/grupos', validateRequest(createGrupoSchema), async (req, res)
       data: {
         nombre: data.nombre,
         identificador: data.identificador,
-        cuatrimestre: cursoMateria.cuatrimestre, // Traer del cursoMateria encontrado
         cursoMateriaId: cursoMateria.id, // Relación directa
         maestroId: data.maestroId,
         horarios: data.horarios

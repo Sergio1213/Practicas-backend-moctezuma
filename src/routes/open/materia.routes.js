@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import { prisma } from '../../lib/prisma.js';
+import { Router } from "express";
+import { prisma } from "../../lib/prisma.js";
 
 export const materiaRoutes = Router();
 
@@ -30,25 +30,23 @@ export const materiaRoutes = Router();
  *       500:
  *         description: Server error
  */
-materiaRoutes.get('/', async (req, res) => {
+materiaRoutes.get("/", async (req, res) => {
   try {
     const materias = await prisma.materia.findMany({
       select: {
         id: true,
         nombre: true,
         creditos: true,
-        descripcion:true
+        descripcion: true,
       },
     });
-
-    if (materias.length === 0) {
-      return res.status(404).json({ message: 'No subjects found' });
-    }
 
     res.status(200).json(materias);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'An error occurred while retrieving subjects' });
+    res
+      .status(500)
+      .json({ message: "An error occurred while retrieving subjects" });
   }
 });
 
@@ -84,7 +82,7 @@ materiaRoutes.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-materiaRoutes.get('/:id', async (req, res) => {
+materiaRoutes.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -99,15 +97,16 @@ materiaRoutes.get('/:id', async (req, res) => {
     });
 
     if (!materia) {
-      return res.status(404).json({ message: 'Subject not found' });
+      return res.status(404).json({ message: "Subject not found" });
     }
 
     res.status(200).json(materia);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'An error occurred while retrieving the subject' });
+    res
+      .status(500)
+      .json({ message: "An error occurred while retrieving the subject" });
   }
 });
-
 
 export default materiaRoutes;
