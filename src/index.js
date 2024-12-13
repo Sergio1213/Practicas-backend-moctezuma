@@ -20,6 +20,7 @@ import ofertaEducativaRoutes from './routes/open/oferta-educativa.routes.js';
 import grupoMaestroRouter from './routes/teacher/grupo.routes.js';
 import profileTeacherRouter from './routes/teacher/profile.routes.js';
 import gradeRouter from './routes/teacher/grade.routes.js';
+import estadisticasRoutes from './routes/open/estadisticas.routes.js';
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use('/api/ofertas', ofertaEducativaRoutes);
 app.use('/api/teachers/grupos', authenticate, authorize('MAESTRO'),grupoMaestroRouter);
 app.use('/api/teachers/profile',authenticate, authorize('MAESTRO', 'ADMIN'), profileTeacherRouter);
 app.use('/api/teachers/grade',authenticate, authorize('MAESTRO'), gradeRouter);
+app.use('/api/estadisticas',estadisticasRoutes);
 
 app.use(errorHandler);
 
