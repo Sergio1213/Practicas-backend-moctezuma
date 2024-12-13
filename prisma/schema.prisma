@@ -71,6 +71,7 @@ model Maestro {
 
 model OfertaEducativa {
   id          Int      @id @default(autoincrement())
+  duracion    String
   nombre      String
   descripcion String
   nivel       String

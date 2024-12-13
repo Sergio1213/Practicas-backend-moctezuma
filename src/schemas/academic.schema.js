@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const ofertaEducativaSchema = z.object({
+  duracion: z.string().min(1),
   nombre: z.string().min(1),
   descripcion: z.string().min(1),
   nivel: z.string().min(1)
