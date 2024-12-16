@@ -184,20 +184,27 @@ model GrupoAlumno {
   @@index([grupoId])
 }
 
+
+
 model ProgresoMateria {
   id            Int           @id @default(autoincrement())
   alumno        Alumno        @relation(fields: [alumnoId], references: [id])
   alumnoId      Int
   materia       Materia       @relation(fields: [materiaId], references: [id])
   materiaId     Int
-  completado    Boolean       @default(false)
+  status        Status        @default(SIN_CURSAR)       
   calificacion  Float?
   fechaFinal    DateTime?
-  estadoMateria EstadoMateria @default(CURSANDO)
+  cuatrimestre  String        
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-
   @@unique([alumnoId, materiaId])
   @@index([alumnoId])
   @@index([materiaId])
+}
+
+enum Status{
+CURSADA
+SIN_CURSAR
+SEGUNDA
 }

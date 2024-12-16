@@ -764,6 +764,7 @@ adminRouter.get('/grupos/:id', async (req, res) => {
       include: {
         cursoMateria: {
           select: {
+            materiaId:true,
             curso: {
               select: {
                 nombre: true,
@@ -814,7 +815,6 @@ adminRouter.get('/grupos/:id', async (req, res) => {
                       },
                     },
                     calificacion: true,
-                    estadoMateria: true,
                   },
                 },
               },
@@ -830,8 +830,9 @@ adminRouter.get('/grupos/:id', async (req, res) => {
 
     // Transformar los datos al formato solicitado
     const formattedResponse = {
+      
       curso: grupo.cursoMateria.curso.nombre,
-      idMateria: grupo.cursoMateria.materia.id,
+      MateriaId: grupo.cursoMateria.materiaId,
       materia: grupo.cursoMateria.materia.nombre,
       maestro: {
         nombre: grupo.maestro.usuario.nombre,

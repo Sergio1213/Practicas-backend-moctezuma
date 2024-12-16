@@ -58,39 +58,58 @@ export const authRouter = Router();
 authRouter.post("/login", async (req, res) => {
   const { matricula, password } = loginSchema.parse(req.body);
 
-  const user = await prisma.usuario.findUnique({
-    where: { matricula },
-    include: {
-      alumnoFile: {
-        include: {
-          curso: true,
+  try {
+    const user = await prisma.usuario.findUnique({
+      where: { matricula },
+      include: {
+        alumnoFile: {
+          include: {
+            curso: true,
+          },
         },
+        maestroFile: true, // Relación para maestros
       },
-    },
-  });
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    throw new UnauthorizedError("Invalid credentials");
+    });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      throw new UnauthorizedError("Invalid credentials");
+    }
+
+    // Obtener el ID de alumno o maestro según el rol
+    const alumnoId = user.role === "ALUMNO" ? user.alumnoFile?.id || null : null;
+    const maestroId = user.role === "MAESTRO" ? user.maestroFile?.id || null : null;
+
+    // Generar el token JWT
+    const token = jwt.sign(
+      {
+        id: user.id,
+        role: user.role,
+        ...(alumnoId && { alumnoId }), // Agregar alumnoId si existe
+        ...(maestroId && { maestroId }), // Agregar maestroId si existe
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    // Responder con el token y datos del usuario
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        matricula: user.matricula,
+        nombre: user.nombre,
+        role: user.role,
+        ...(user.role === "ALUMNO" && {
+          curso: user.alumnoFile?.curso?.nombre || null, // Añade el curso si el rol es ALUMNO
+        }),
+      },
+    });
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json({ error: "Something went wrong" });
   }
-
-  const token = jwt.sign(
-    { id: user.id, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: "24h" }
-  );
-
-  res.json({
-    token,
-    user: {
-      id: user.id,
-      matricula: user.matricula,
-      nombre: user.nombre,
-      role: user.role,
-      ...(user.role === "ALUMNO" && {
-        curso: user.alumnoFile?.curso?.nombre || null, // Añade el cursoId si el rol es ALUMNO
-      }),
-    },
-  });
 });
+
 
 /**
  * @swagger

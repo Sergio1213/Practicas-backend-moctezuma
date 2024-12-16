@@ -85,29 +85,67 @@ studentRouter.patch('/profile', async (req, res) => {
 studentRouter.get('/progress', async (req, res) => {
   const alumnoId = req.user.alumnoId;
 
-  const progress = await prisma.progresoMateria.findMany({
-    where: { alumnoId },
-    include: {
-      materia: true
-    }
-  });
+  try {
+    // Obtener el progreso del alumno y las materias relacionadas
+    const progress = await prisma.progresoMateria.findMany({
+      where: { alumnoId },
+      include: {
+        materia: {
+          include: {
+            cursos: { // Incluir los cursos asociados a la materia
+              where: {
+                curso: {
+                  alumnos: {
+                    some: { alumnoId: alumnoId }, // Relacionar con el alumno
+                  },
+                },
+              },
+              include: {
+                curso: {
+                  include: {
+                    materias: true, // Incluir las materias de cada curso
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
-  const materias = await prisma.materia.findMany();
-  const totalCredits = materias.reduce((sum, materia) => sum + materia.creditos, 0);
-  
-  const completedCredits = progress
-    .filter(p => p.completado && p.calificacion >= 6)
-    .reduce((sum, p) => sum + p.materia.creditos, 0);
+    // Mapear el progreso de las materias
+    const formattedProgress = progress.map((p) => ({
+      cuatrimestre: p.cuatrimestre,
+      materia: {
+        nombre: p.materia.nombre,
+        status: p.status || null,
+        calificacion: p.calificacion || null,
+        fechaFinal: p.fechaFinal || null,
+      },
+    }));
 
-  const progressPercentage = (completedCredits / totalCredits) * 100;
+    // Agrupar las materias por cuatrimestre
+    const cuatrimestres = formattedProgress.reduce((acc, item) => {
+      if (!acc[item.cuatrimestre]) {
+        acc[item.cuatrimestre] = [];
+      }
+      acc[item.cuatrimestre].push(item.materia);
+      return acc;
+    }, {});
 
-  res.json({
-    progress,
-    totalCredits,
-    completedCredits,
-    progressPercentage
-  });
+    // Crear la respuesta con cuatrimestres y las materias correspondientes
+    const response = Object.keys(cuatrimestres).map((cuatrimestre) => ({
+      cuatrimestre: parseInt(cuatrimestre),
+      materias: cuatrimestres[cuatrimestre],
+    }));
+
+    res.json(response);
+  } catch (error) {
+    console.error("Error al obtener el progreso:", error);
+    res.status(500).json({ error: "Error al obtener el progreso" });
+  }
 });
+
 
 /**
  * @swagger
