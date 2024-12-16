@@ -1,8 +1,9 @@
-import { Router } from 'express';
-import { prisma } from '../../lib/prisma.js';
-import { validateRequest } from '../../middleware/validation.middleware.js';
-import { horarioSchema } from '../../schemas/horario.schema.js';
-import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { Router } from "express";
+import { prisma } from "../../lib/prisma.js";
+import { validateRequest } from "../../middleware/validation.middleware.js";
+import { horarioSchema } from "../../schemas/horario.schema.js";
+import { ForbiddenError, NotFoundError } from "../../lib/errors.js";
+import { z } from "zod";
 
 export const HorarioRouter = Router();
 
@@ -45,7 +46,7 @@ export const HorarioRouter = Router();
  *                 type: string
  *                 pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
  */
-HorarioRouter.post('/', validateRequest(horarioSchema), async (req, res) => {
+HorarioRouter.post("/", validateRequest(horarioSchema), async (req, res) => {
   const { grupoId, dia, horaInicio, horaFin } = req.body;
 
   // Verificar si hay conflictos de horario
@@ -57,21 +58,18 @@ HorarioRouter.post('/', validateRequest(horarioSchema), async (req, res) => {
         {
           AND: [
             { horaInicio: { lte: horaInicio } },
-            { horaFin: { gt: horaInicio } }
-          ]
+            { horaFin: { gt: horaInicio } },
+          ],
         },
         {
-          AND: [
-            { horaInicio: { lt: horaFin } },
-            { horaFin: { gte: horaFin } }
-          ]
-        }
-      ]
-    }
+          AND: [{ horaInicio: { lt: horaFin } }, { horaFin: { gte: horaFin } }],
+        },
+      ],
+    },
   });
 
   if (conflicto) {
-    throw new ForbiddenError('Existe un conflicto de horario para este grupo');
+    throw new ForbiddenError("Existe un conflicto de horario para este grupo");
   }
 
   const horario = await prisma.horarioGrupo.create({
@@ -79,8 +77,8 @@ HorarioRouter.post('/', validateRequest(horarioSchema), async (req, res) => {
       grupoId,
       dia,
       horaInicio,
-      horaFin
-    }
+      horaFin,
+    },
   });
 
   res.status(201).json(horario);
@@ -117,54 +115,66 @@ HorarioRouter.post('/', validateRequest(horarioSchema), async (req, res) => {
  *                 type: string
  *                 pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
  */
-HorarioRouter.patch('/:id', validateRequest(horarioSchema.partial()), async (req, res) => {
-  const { id } = req.params;
-  const updateData = req.body;
+HorarioRouter.patch(
+  "/:id",
+  validateRequest(z.object({ body: horarioSchema.partial() })),
+  async (req, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
 
-  const horario = await prisma.horarioGrupo.findUnique({
-    where: { id: parseInt(id) }
-  });
-
-  if (!horario) {
-    throw new NotFoundError('Horario no encontrado');
-  }
-
-  // Verificar conflictos si se está actualizando el horario
-  if (updateData.horaInicio || updateData.horaFin || updateData.dia) {
-    const conflicto = await prisma.horarioGrupo.findFirst({
-      where: {
-        grupoId: horario.grupoId,
-        dia: updateData.dia || horario.dia,
-        id: { not: parseInt(id) },
-        OR: [
-          {
-            AND: [
-              { horaInicio: { lte: updateData.horaInicio || horario.horaInicio } },
-              { horaFin: { gt: updateData.horaInicio || horario.horaInicio } }
-            ]
-          },
-          {
-            AND: [
-              { horaInicio: { lt: updateData.horaFin || horario.horaFin } },
-              { horaFin: { gte: updateData.horaFin || horario.horaFin } }
-            ]
-          }
-        ]
-      }
+    const horario = await prisma.horarioGrupo.findUnique({
+      where: { id: parseInt(id) },
     });
 
-    if (conflicto) {
-      throw new ForbiddenError('Existe un conflicto de horario para este grupo');
+    if (!horario) {
+      throw new NotFoundError("Horario no encontrado");
     }
+
+    // Verificar conflictos si se está actualizando el horario
+    if (updateData.horaInicio || updateData.horaFin || updateData.dia) {
+      const conflicto = await prisma.horarioGrupo.findFirst({
+        where: {
+          grupoId: horario.grupoId,
+          dia: updateData.dia || horario.dia,
+          id: { not: parseInt(id) },
+          OR: [
+            {
+              AND: [
+                {
+                  horaInicio: {
+                    lte: updateData.horaInicio || horario.horaInicio,
+                  },
+                },
+                {
+                  horaFin: { gt: updateData.horaInicio || horario.horaInicio },
+                },
+              ],
+            },
+            {
+              AND: [
+                { horaInicio: { lt: updateData.horaFin || horario.horaFin } },
+                { horaFin: { gte: updateData.horaFin || horario.horaFin } },
+              ],
+            },
+          ],
+        },
+      });
+
+      if (conflicto) {
+        throw new ForbiddenError(
+          "Existe un conflicto de horario para este grupo"
+        );
+      }
+    }
+
+    const updatedHorario = await prisma.horarioGrupo.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+    });
+
+    res.json(updatedHorario);
   }
-
-  const updatedHorario = await prisma.horarioGrupo.update({
-    where: { id: parseInt(id) },
-    data: updateData
-  });
-
-  res.json(updatedHorario);
-});
+);
 
 /**
  * @swagger
@@ -181,14 +191,14 @@ HorarioRouter.patch('/:id', validateRequest(horarioSchema.partial()), async (req
  *         schema:
  *           type: integer
  */
-HorarioRouter.delete('/:id', async (req, res) => {
+HorarioRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   await prisma.horarioGrupo.delete({
-    where: { id: parseInt(id) }
+    where: { id: parseInt(id) },
   });
 
-  res.json({ message: 'Horario eliminado exitosamente' });
+  res.json({ message: "Horario eliminado exitosamente" });
 });
 
 /**
@@ -206,19 +216,19 @@ HorarioRouter.delete('/:id', async (req, res) => {
  *         schema:
  *           type: integer
  */
-HorarioRouter.get('/grupo/:grupoId', async (req, res) => {
+HorarioRouter.get("/grupo/:grupoId", async (req, res) => {
   const { grupoId } = req.params;
 
   const horarios = await prisma.horarioGrupo.findMany({
     where: { grupoId: parseInt(grupoId) },
     orderBy: [
       {
-        dia: 'asc'
+        dia: "asc",
       },
       {
-        horaInicio: 'asc'
-      }
-    ]
+        horaInicio: "asc",
+      },
+    ],
   });
 
   res.json(horarios);
