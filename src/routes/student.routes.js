@@ -302,6 +302,69 @@ studentRouter.get("/progress", async (req, res) => {
   }
 });
 
+studentRouter.get("/progress-comparado", async (req, res) => {
+  const alumnoId = req.user.alumnoId;
+
+  console.log("alumnoId", alumnoId);
+
+  try {
+    // 1. Obtener las materias actuales que el alumno está cursando
+    const materiasActuales = await prisma.grupoAlumno.findMany({
+      where: { alumnoId },
+      include: {
+        grupo: {
+          include: {
+            cursoMateria: {
+              include: {
+                materia: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Extraer IDs de materias actuales
+    const materiasActualesIds = materiasActuales.map(
+      (grupoAlumno) => grupoAlumno.grupo.cursoMateria.materia.id
+    );
+
+    // 2. Obtener todo el progreso del alumno
+    const progress = await prisma.progresoMateria.findMany({
+      where: { alumnoId },
+      include: {
+        materia: {
+          select: {
+            id: true,
+            nombre: true,
+            creditos: true,
+          },
+        },
+      },
+    });
+
+    // 3. Comparar y ajustar el status
+    const adjustedProgress = progress.map((p) => {
+      const isCursando = materiasActualesIds.includes(p.materia.id);
+
+      return {
+        materia: p.materia.nombre,
+        creditosMateria: p.materia.creditos,
+        status: isCursando ? "CURSANDO" : p.status,
+        calificacion: p.calificacion || null,
+        fechaFinal: p.fechaFinal || null,
+        cuatrimestre: p.cuatrimestre,
+      };
+    });
+
+    // 4. Respuesta al cliente
+    res.json({ progreso: adjustedProgress });
+  } catch (error) {
+    console.error("Error al comparar progreso con materias actuales:", error);
+    res.status(500).json({ error: "Error al obtener el progreso comparado" });
+  }
+});
+
 /**
  * @swagger
  * /api/students/available-subjects:
