@@ -155,6 +155,60 @@ studentRouter.get("/materias-actuales", async (req, res) => {
   }
 });
 
+studentRouter.get("/calificaciones", async (req, res) => {
+  try {
+    // Extraer el alumnoId del token JWT
+    const alumnoId = req.user.alumnoId;
+
+    console.log("alumnoId", alumnoId);
+
+    // Buscar las calificaciones del alumno
+    const calificaciones = await prisma.grupoAlumno.findMany({
+      where: {
+        alumnoId, // Filtra por el ID del alumno
+      },
+      select: {
+        calificacion: true, // Solo calificación
+        grupo: {
+          select: {
+            cursoMateria: {
+              select: {
+                materia: {
+                  select: {
+                    nombre: true, // Nombre de la materia
+                  },
+                },
+              },
+            },
+            maestro: {
+              select: {
+                usuario: {
+                  select: {
+                    nombre: true,
+                    apellido: true, // Nombre y apellido del maestro
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Formatear la respuesta
+    const response = calificaciones.map((grupoAlumno) => ({
+      calificacion: grupoAlumno.calificacion,
+      materia: grupoAlumno.grupo.cursoMateria.materia.nombre,
+      maestro: `${grupoAlumno.grupo.maestro.usuario.nombre} ${grupoAlumno.grupo.maestro.usuario.apellido}`,
+    }));
+
+    res.json({ calificaciones: response });
+  } catch (error) {
+    console.error("Error al obtener calificaciones del alumno:", error);
+    res.status(500).json({ error: "Error al obtener las calificaciones" });
+  }
+});
+
 /**
  * @swagger
  * /api/students/progress:
