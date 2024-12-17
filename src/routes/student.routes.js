@@ -1,7 +1,7 @@
-import { Router } from 'express';
-import { prisma } from '../lib/prisma.js';
-import { authenticate, authorize } from '../middleware/auth.middleware.js';
-import { updateUserSchema } from '../schemas/user.schema.js';
+import { Router } from "express";
+import { prisma } from "../lib/prisma.js";
+import { authenticate, authorize } from "../middleware/auth.middleware.js";
+import { updateUserSchema } from "../schemas/user.schema.js";
 
 export const studentRouter = Router();
 
@@ -12,7 +12,7 @@ export const studentRouter = Router();
  *   description: Student operations
  */
 
-studentRouter.use(authenticate, authorize('ALUMNO'));
+studentRouter.use(authenticate, authorize("ALUMNO"));
 
 /**
  * @swagger
@@ -37,15 +37,122 @@ studentRouter.use(authenticate, authorize('ALUMNO'));
  *       200:
  *         description: Profile updated successfully
  */
-studentRouter.patch('/profile', async (req, res) => {
+studentRouter.patch("/profile", async (req, res) => {
   const updateData = updateUserSchema.parse(req.body);
 
   const updatedUser = await prisma.usuario.update({
     where: { id: req.user.id },
-    data: updateData
+    data: updateData,
   });
 
   res.json(updatedUser);
+});
+
+/**
+ * @swagger
+ * /api/students/materias-actuales:
+ *   get:
+ *     summary: Get subjects and schedules for the student
+ *     tags: [Students]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of subjects the student is currently enrolled in, along with their schedules.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 materias:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       grupoId:
+ *                         type: integer
+ *                       nombreGrupo:
+ *                         type: string
+ *                       materia:
+ *                         type: string
+ *                       descripcion:
+ *                         type: string
+ *                       creditos:
+ *                         type: integer
+ *                       horarios:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             dia:
+ *                               type: string
+ *                             horaInicio:
+ *                               type: string
+ *                               format: date-time
+ *                             horaFin:
+ *                               type: string
+ *                               format: date-time
+ *       403:
+ *         description: The user is not authorized to access the resource or the user is not a student.
+ *       500:
+ *         description: Error retrieving the student's subjects.
+ */
+
+studentRouter.get("/materias-actuales", async (req, res) => {
+  try {
+    // Extraer el alumnoId del token JWT
+    const alumnoId = req.user.alumnoId;
+
+    console.log("alumnoId", alumnoId);
+    // Buscar las materias cursadas por el alumno
+    const materiasCursando = await prisma.grupoAlumno.findMany({
+      where: {
+        alumnoId, // Filtra por el ID del alumno extraído del token
+      },
+      include: {
+        grupo: {
+          include: {
+            cursoMateria: {
+              include: {
+                materia: true, // Información de la materia
+              },
+            },
+            horarios: true, // Horarios del grupo
+            maestro: {
+              include: {
+                usuario: {
+                  select: {
+                    nombre: true,
+                    apellido: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Estructurar la respuesta para que sea más clara
+    const response = materiasCursando.map((grupoAlumno) => ({
+      grupoId: grupoAlumno.grupo.id,
+      nombreGrupo: grupoAlumno.grupo.nombre,
+      maestro: `${grupoAlumno.grupo.maestro.usuario.nombre} ${grupoAlumno.grupo.maestro.usuario.apellido}`, // Nombre y apellido del maestro
+      materia: grupoAlumno.grupo.cursoMateria.materia.nombre,
+      descripcion: grupoAlumno.grupo.cursoMateria.materia.descripcion,
+      creditos: grupoAlumno.grupo.cursoMateria.materia.creditos,
+      horarios: grupoAlumno.grupo.horarios.map((horario) => ({
+        dia: horario.dia,
+        horaInicio: horario.horaInicio,
+        horaFin: horario.horaFin,
+      })),
+    }));
+
+    res.json({ materias: response });
+  } catch (error) {
+    console.error("Error al obtener materias del alumno:", error);
+    res.status(500).json({ error: "Error al obtener las materias" });
+  }
 });
 
 /**
@@ -82,36 +189,31 @@ studentRouter.patch('/profile', async (req, res) => {
  *                 progressPercentage:
  *                   type: number
  */
-studentRouter.get('/progress', async (req, res) => {
+studentRouter.get("/progress", async (req, res) => {
   const alumnoId = req.user.alumnoId;
+
+  console.log("alumnoId", alumnoId);
 
   try {
     // Obtener el progreso del alumno y las materias relacionadas
     const progress = await prisma.progresoMateria.findMany({
-      where: { alumnoId },
+      where: {
+        alumnoId: alumnoId, // Filtra por alumnoId en el modelo ProgresoMateria
+      },
       include: {
         materia: {
-          include: {
-            cursos: { // Incluir los cursos asociados a la materia
-              where: {
-                curso: {
-                  alumnos: {
-                    some: { alumnoId: alumnoId }, // Relacionar con el alumno
-                  },
-                },
-              },
-              include: {
-                curso: {
-                  include: {
-                    materias: true, // Incluir las materias de cada curso
-                  },
-                },
-              },
-            },
+          select: {
+            nombre: true, // Incluye el nombre de la materia
           },
-        },
+        }, // Incluye la información de la materia
       },
     });
+
+    if (progress.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "No se encontró progreso para el alumno" });
+    }
 
     // Mapear el progreso de las materias
     const formattedProgress = progress.map((p) => ({
@@ -146,7 +248,6 @@ studentRouter.get('/progress', async (req, res) => {
   }
 });
 
-
 /**
  * @swagger
  * /api/students/available-subjects:
@@ -176,40 +277,40 @@ studentRouter.get('/progress', async (req, res) => {
  *                   requisitos:
  *                     type: array
  */
-studentRouter.get('/available-subjects', async (req, res) => {
+studentRouter.get("/available-subjects", async (req, res) => {
   const alumnoId = req.user.alumnoId;
   const alumno = await prisma.alumno.findUnique({
     where: { id: alumnoId },
     include: {
       progreso: {
-        include: { materia: true }
-      }
-    }
+        include: { materia: true },
+      },
+    },
   });
 
   const nextQuarterSubjects = await prisma.materia.findMany({
     where: {
       grupos: {
         some: {
-          cuatrimestre: alumno.cuatrimestre + 1
-        }
-      }
+          cuatrimestre: alumno.cuatrimestre + 1,
+        },
+      },
     },
     include: {
       requisitos: {
-        include: { requisito: true }
-      }
-    }
+        include: { requisito: true },
+      },
+    },
   });
 
   const completedMaterias = new Set(
     alumno.progreso
-      .filter(p => p.completado && p.calificacion >= 6)
-      .map(p => p.materiaId)
+      .filter((p) => p.completado && p.calificacion >= 6)
+      .map((p) => p.materiaId)
   );
 
-  const availableSubjects = nextQuarterSubjects.filter(materia => {
-    return materia.requisitos.every(req => 
+  const availableSubjects = nextQuarterSubjects.filter((materia) => {
+    return materia.requisitos.every((req) =>
       completedMaterias.has(req.requisitoId)
     );
   });

@@ -59,57 +59,110 @@ authRouter.post("/login", async (req, res) => {
   const { matricula, password } = loginSchema.parse(req.body);
 
   try {
+    // Obtener al usuario y sus relaciones
     const user = await prisma.usuario.findUnique({
       where: { matricula },
       include: {
         alumnoFile: {
           include: {
             curso: true,
+            grupos: {
+              include: {
+                grupo: true,
+              },
+            },
           },
         },
-        maestroFile: true, // Relación para maestros
+        maestroFile: {
+          include: {
+            grupos: true,
+          },
+        },
       },
     });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      throw new UnauthorizedError("Invalid credentials");
+      return res.status(401).json({ error: "Credenciales inválidas" });
     }
 
-    // Obtener el ID de alumno o maestro según el rol
-    const alumnoId = user.role === "ALUMNO" ? user.alumnoFile?.id || null : null;
-    const maestroId = user.role === "MAESTRO" ? user.maestroFile?.id || null : null;
+    if (!user.status) {
+      return res.status(403).json({ error: "Usuario inactivo" });
+    }
+
+    // Preparar datos específicos según el rol
+    let roleSpecificData = {};
+
+    switch (user.role) {
+      case "ALUMNO":
+        if (!user.alumnoFile) {
+          return res
+            .status(400)
+            .json({ error: "Datos de alumno no encontrados" });
+        }
+        roleSpecificData = {
+          alumnoId: user.alumnoFile.id,
+          curso: user.alumnoFile.curso.nombre,
+          cuatrimestre: user.alumnoFile.cuatrimestre,
+          pago: user.alumnoFile.pago,
+        };
+        break;
+
+      case "MAESTRO":
+        if (!user.maestroFile) {
+          return res
+            .status(400)
+            .json({ error: "Datos de maestro no encontrados" });
+        }
+        roleSpecificData = {
+          maestroId: user.maestroFile.id,
+          especialidad: user.maestroFile.especialidad,
+        };
+        break;
+
+      case "ADMIN":
+        // Para administradores no necesitamos datos adicionales
+        break;
+
+      default:
+        return res.status(400).json({ error: "Rol de usuario no válido" });
+    }
 
     // Generar el token JWT
     const token = jwt.sign(
       {
         id: user.id,
         role: user.role,
-        ...(alumnoId && { alumnoId }), // Agregar alumnoId si existe
-        ...(maestroId && { maestroId }), // Agregar maestroId si existe
+        ...roleSpecificData,
       },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
 
-    // Responder con el token y datos del usuario
-    res.json({
+    // Preparar la respuesta
+    const response = {
       token,
       user: {
         id: user.id,
         matricula: user.matricula,
-        nombre: user.nombre,
+        nombre: `${user.nombre} ${user.apellido}`,
         role: user.role,
-        ...(user.role === "ALUMNO" && {
-          curso: user.alumnoFile?.curso?.nombre || null, // Añade el curso si el rol es ALUMNO
-        }),
+        ...roleSpecificData,
       },
-    });
+    };
+
+    res.json(response);
   } catch (error) {
-    console.error("Error during login:", error);
-    res.status(500).json({ error: "Something went wrong" });
+    console.error("Error durante el login:", error);
+
+    if (error.name === "ZodError") {
+      return res
+        .status(400)
+        .json({ error: "Datos de entrada inválidos", details: error.errors });
+    }
+
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 });
-
 
 /**
  * @swagger

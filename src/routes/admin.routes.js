@@ -1,9 +1,16 @@
-import { Router } from 'express';
-import { prisma } from '../lib/prisma.js';
-import {  ofertaEducativaSchema, cursoSchema, materiaSchema } from '../schemas/academic.schema.js';
-import { validateRequest } from '../middleware/validation.middleware.js';
-import { createGrupoSchema, updateGrupoSchema } from '../schemas/grupo.schema.js';
-import { NotFoundError } from '../lib/errors.js';
+import { Router } from "express";
+import { prisma } from "../lib/prisma.js";
+import {
+  ofertaEducativaSchema,
+  cursoSchema,
+  materiaSchema,
+} from "../schemas/academic.schema.js";
+import { validateRequest } from "../middleware/validation.middleware.js";
+import {
+  createGrupoSchema,
+  updateGrupoSchema,
+} from "../schemas/grupo.schema.js";
+import { NotFoundError } from "../lib/errors.js";
 
 export const adminRouter = Router();
 
@@ -39,11 +46,11 @@ export const adminRouter = Router();
  *       201:
  *         description: Educational offering created successfully
  */
-adminRouter.post('/ofertas', async (req, res) => {
+adminRouter.post("/ofertas", async (req, res) => {
   const data = ofertaEducativaSchema.parse(req.body);
-  
+
   const oferta = await prisma.ofertaEducativa.create({
-    data
+    data,
   });
 
   res.status(201).json(oferta);
@@ -82,7 +89,7 @@ adminRouter.post('/ofertas', async (req, res) => {
  *       404:
  *         description: Offering not found
  */
-adminRouter.patch('/ofertas/:id', async (req, res) => {
+adminRouter.patch("/ofertas/:id", async (req, res) => {
   const { id } = req.params;
   const updateData = ofertaEducativaSchema.partial().parse(req.body);
 
@@ -94,7 +101,7 @@ adminRouter.patch('/ofertas/:id', async (req, res) => {
 
     res.json(oferta);
   } catch (error) {
-    res.status(404).json({ message: 'Offering not found' });
+    res.status(404).json({ message: "Offering not found" });
   }
 });
 
@@ -121,7 +128,7 @@ adminRouter.patch('/ofertas/:id', async (req, res) => {
  *       404:
  *         description: Offering not found
  */
-adminRouter.delete('/ofertas/:id', async (req, res) => {
+adminRouter.delete("/ofertas/:id", async (req, res) => {
   const { id } = req.params;
 
   const dependentCourses = await prisma.curso.findMany({
@@ -131,7 +138,7 @@ adminRouter.delete('/ofertas/:id', async (req, res) => {
 
   if (dependentCourses.length > 0) {
     return res.status(400).json({
-      message: 'Cannot delete offering with dependent courses',
+      message: "Cannot delete offering with dependent courses",
       dependentCourses,
     });
   }
@@ -141,9 +148,9 @@ adminRouter.delete('/ofertas/:id', async (req, res) => {
       where: { id: parseInt(id) },
     });
 
-    res.json({ message: 'Offering deleted successfully' });
+    res.json({ message: "Offering deleted successfully" });
   } catch (error) {
-    res.status(404).json({ message: 'Offering not found' });
+    res.status(404).json({ message: "Offering not found" });
   }
 });
 
@@ -180,11 +187,11 @@ adminRouter.delete('/ofertas/:id', async (req, res) => {
  *       201:
  *         description: Course created successfully
  */
-adminRouter.post('/cursos', async (req, res) => {
+adminRouter.post("/cursos", async (req, res) => {
   const data = cursoSchema.parse(req.body);
-  
+
   const curso = await prisma.curso.create({
-    data
+    data,
   });
 
   res.status(201).json(curso);
@@ -223,18 +230,18 @@ adminRouter.post('/cursos', async (req, res) => {
  *       404:
  *         description: Course not found
  */
-adminRouter.patch('/cursos/:id', async (req, res) => {
+adminRouter.patch("/cursos/:id", async (req, res) => {
   const { id } = req.params;
-  const updateData = (req.body);
+  const updateData = req.body;
 
   try {
     const curso = await prisma.curso.update({
       where: { id: parseInt(id) },
-      data: updateData
+      data: updateData,
     });
     res.json(curso);
   } catch (error) {
-    res.status(404).json({ message: 'Course not found' });
+    res.status(404).json({ message: "Course not found" });
   }
 });
 
@@ -261,7 +268,7 @@ adminRouter.patch('/cursos/:id', async (req, res) => {
  *       404:
  *         description: Course not found
  */
-adminRouter.delete('/cursos/:id', async (req, res) => {
+adminRouter.delete("/cursos/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -281,8 +288,8 @@ adminRouter.delete('/cursos/:id', async (req, res) => {
     // Verificar si existen materias dependientes
     if (materias.length > 0) {
       return res.status(400).json({
-        message: 'Cannot delete course with dependent subjects',
-        dependents: materias.map(materia => materia.materia), // Obtener solo las materias
+        message: "Cannot delete course with dependent subjects",
+        dependents: materias.map((materia) => materia.materia), // Obtener solo las materias
       });
     }
 
@@ -291,13 +298,12 @@ adminRouter.delete('/cursos/:id', async (req, res) => {
       where: { id: parseInt(id) },
     });
 
-    res.json({ message: 'Course deleted successfully' });
+    res.json({ message: "Course deleted successfully" });
   } catch (error) {
     console.error(error);
-    res.status(404).json({ message: 'Course not found' });
+    res.status(404).json({ message: "Course not found" });
   }
 });
-
 
 /**
  * @swagger
@@ -332,9 +338,9 @@ adminRouter.delete('/cursos/:id', async (req, res) => {
  *       201:
  *         description: Subject created successfully
  */
-adminRouter.post('/materias', async (req, res) => {
+adminRouter.post("/materias", async (req, res) => {
   const data = materiaSchema.parse(req.body);
-  
+
   const materia = await prisma.materia.create({
     data: {
       nombre: data.nombre,
@@ -342,12 +348,12 @@ adminRouter.post('/materias', async (req, res) => {
       creditos: data.creditos,
       ...(data.requisitosIds && {
         requisitos: {
-          create: data.requisitosIds.map(requisitoId => ({
-            requisito: { connect: { id: requisitoId } }
-          }))
-        }
-      })
-    }
+          create: data.requisitosIds.map((requisitoId) => ({
+            requisito: { connect: { id: requisitoId } },
+          })),
+        },
+      }),
+    },
   });
 
   res.status(201).json(materia);
@@ -387,18 +393,18 @@ adminRouter.post('/materias', async (req, res) => {
  *       404:
  *         description: Subject not found
  */
-adminRouter.patch('/materias/:id', async (req, res) => {
+adminRouter.patch("/materias/:id", async (req, res) => {
   const { id } = req.params;
-  const updateData = (req.body);
+  const updateData = req.body;
 
   try {
     const materia = await prisma.materia.update({
       where: { id: parseInt(id) },
-      data: updateData
+      data: updateData,
     });
     res.json(materia);
   } catch (error) {
-    res.status(404).json({ message: 'Subject not found' });
+    res.status(404).json({ message: "Subject not found" });
   }
 });
 
@@ -465,7 +471,7 @@ adminRouter.patch('/materias/:id', async (req, res) => {
  *                   type: string
  *                   example: Internal server error
  */
-adminRouter.delete('/materias/:id', async (req, res) => {
+adminRouter.delete("/materias/:id", async (req, res) => {
   const { id } = req.params;
 
   // Verificar si la materia tiene dependencias activas en CursoMateria
@@ -484,9 +490,9 @@ adminRouter.delete('/materias/:id', async (req, res) => {
   // Si hay dependencias activas (relaciones con cursos), no se permite eliminar
   if (cursoMateria.length > 0) {
     return res.status(400).json({
-      message: 'Cannot delete subject with active course relations',
-      dependents: cursoMateria.map(cm => ({
-        cursoId: cm.curso.id,  // ID del curso relacionado
+      message: "Cannot delete subject with active course relations",
+      dependents: cursoMateria.map((cm) => ({
+        cursoId: cm.curso.id, // ID del curso relacionado
         cursoNombre: cm.curso.nombre, // Nombre del curso relacionado
       })),
     });
@@ -498,10 +504,10 @@ adminRouter.delete('/materias/:id', async (req, res) => {
       where: { id: parseInt(id) },
     });
 
-    res.json({ message: 'Subject deleted successfully' });
+    res.json({ message: "Subject deleted successfully" });
   } catch (error) {
     console.error(error);
-    res.status(404).json({ message: 'Subject not found' });
+    res.status(404).json({ message: "Subject not found" });
   }
 });
 /**
@@ -544,89 +550,91 @@ adminRouter.delete('/materias/:id', async (req, res) => {
  *                     horaFin:
  *                       type: string
  */
-adminRouter.post('/grupos', validateRequest(createGrupoSchema), async (req, res) => {
-  const { body: data } = req;
+adminRouter.post(
+  "/grupos",
+  validateRequest(createGrupoSchema),
+  async (req, res) => {
+    const { body: data } = req;
 
-  // Verificar que el maestro existe
-  const maestro = await prisma.maestro.findUnique({
-    where: { id: data.maestroId },
-  });
+    // Verificar que el maestro existe
+    const maestro = await prisma.maestro.findUnique({
+      where: { id: data.maestroId },
+    });
 
-  if (!maestro) {
-    throw new NotFoundError('Teacher not found');
-  }
+    if (!maestro) {
+      throw new NotFoundError("Teacher not found");
+    }
 
-  // Verificar que CursoMateria existe
-  const cursoMateria = await prisma.cursoMateria.findUnique({
-    where: { id: data.cursoMateriaId },
-    include: {
-      curso: true,
-      materia: true,
-    },
-  });
-
-  if (!cursoMateria) {
-    throw new NotFoundError('CursoMateria not found');
-  }
-
-  // Crear el grupo y sus horarios en una transacción
-  const grupo = await prisma.$transaction(async (tx) => {
-    // Crear el grupo
-    const newGrupo = await tx.grupo.create({
-      data: {
-        nombre: data.nombre,
-        identificador: data.identificador,
-        cursoMateriaId: cursoMateria.id, // Relación directa
-        maestroId: data.maestroId,
-        horarios: data.horarios
-          ? {
-              createMany: {
-                data: data.horarios.map((horario) => ({
-                  dia: horario.dia,
-                  horaInicio: horario.horaInicio,
-                  horaFin: horario.horaFin,
-                })),
-              },
-            }
-          : undefined, // Crear horarios solo si se proporcionaron
-      },
+    // Verificar que CursoMateria existe
+    const cursoMateria = await prisma.cursoMateria.findUnique({
+      where: { id: data.cursoMateriaId },
       include: {
-        cursoMateria: {
-          select: {
-            curso: {
-              select:{
-                nombre:true
-              }
-            },
-            materia: {
-              select: {
-                nombre: true, // Solo incluye el nombre de la materia
-              },
-            },
-          },
-        },
-        maestro: {
-          include: {
-            usuario: {
-              select: {
-                nombre: true,
-                apellido: true,
-              },
-            },
-          },
-        },
-        horarios: true, // Incluir los horarios creados
+        curso: true,
+        materia: true,
       },
     });
 
-    return newGrupo;
-  });
+    if (!cursoMateria) {
+      throw new NotFoundError("CursoMateria not found");
+    }
 
-  // Enviar la respuesta con el grupo creado
-  res.status(201).json(grupo);
-});
+    // Crear el grupo y sus horarios en una transacción
+    const grupo = await prisma.$transaction(async (tx) => {
+      // Crear el grupo
+      const newGrupo = await tx.grupo.create({
+        data: {
+          nombre: data.nombre,
+          identificador: data.identificador,
+          cursoMateriaId: cursoMateria.id, // Relación directa
+          maestroId: data.maestroId,
+          horarios: data.horarios
+            ? {
+                createMany: {
+                  data: data.horarios.map((horario) => ({
+                    dia: horario.dia,
+                    horaInicio: horario.horaInicio,
+                    horaFin: horario.horaFin,
+                  })),
+                },
+              }
+            : undefined, // Crear horarios solo si se proporcionaron
+        },
+        include: {
+          cursoMateria: {
+            select: {
+              curso: {
+                select: {
+                  nombre: true,
+                },
+              },
+              materia: {
+                select: {
+                  nombre: true, // Solo incluye el nombre de la materia
+                },
+              },
+            },
+          },
+          maestro: {
+            include: {
+              usuario: {
+                select: {
+                  nombre: true,
+                  apellido: true,
+                },
+              },
+            },
+          },
+          horarios: true, // Incluir los horarios creados
+        },
+      });
 
+      return newGrupo;
+    });
 
+    // Enviar la respuesta con el grupo creado
+    res.status(201).json(grupo);
+  }
+);
 
 /**
  * @swagger
@@ -643,73 +651,77 @@ adminRouter.post('/grupos', validateRequest(createGrupoSchema), async (req, res)
  *         schema:
  *           type: integer
  */
-adminRouter.patch('/grupos/:id', validateRequest(updateGrupoSchema), async (req, res) => {
-  const { id } = req.params;
-  const data = req.body;
+adminRouter.patch(
+  "/grupos/:id",
+  validateRequest(updateGrupoSchema),
+  async (req, res) => {
+    const { id } = req.params;
+    const data = req.body;
 
-  // Verificar si el maestro existe al actualizar maestroId
-  if (data.maestroId) {
-    const maestro = await prisma.maestro.findUnique({
-      where: { id: data.maestroId },
+    // Verificar si el maestro existe al actualizar maestroId
+    if (data.maestroId) {
+      const maestro = await prisma.maestro.findUnique({
+        where: { id: data.maestroId },
+      });
+
+      if (!maestro) {
+        throw new NotFoundError("Teacher not found");
+      }
+    }
+
+    const grupo = await prisma.$transaction(async (tx) => {
+      if (data.horarios) {
+        // Eliminar horarios existentes
+        await tx.horarioGrupo.deleteMany({
+          where: { grupoId: parseInt(id) },
+        });
+
+        // Crear nuevos horarios
+        await tx.horarioGrupo.createMany({
+          data: data.horarios.map((horario) => ({
+            ...horario,
+            grupoId: parseInt(id),
+          })),
+        });
+      }
+
+      // Actualizar grupo
+      return tx.grupo.update({
+        where: { id: parseInt(id) },
+        data: {
+          nombre: data.nombre,
+          identificador: data.identificador,
+          maestroId: data.maestroId,
+        },
+        include: {
+          cursoMateria: {
+            select: {
+              curso: true,
+              materia: {
+                select: {
+                  nombre: true,
+                },
+              },
+            },
+          },
+          maestro: {
+            include: {
+              usuario: {
+                select: {
+                  nombre: true,
+                  apellido: true,
+                },
+              },
+            },
+          },
+          horarios: true,
+        },
+      });
     });
 
-    if (!maestro) {
-      throw new NotFoundError('Teacher not found');
-    }
+    res.json(grupo);
   }
-
-  const grupo = await prisma.$transaction(async (tx) => {
-    if (data.horarios) {
-      // Eliminar horarios existentes
-      await tx.horarioGrupo.deleteMany({
-        where: { grupoId: parseInt(id) },
-      });
-
-      // Crear nuevos horarios
-      await tx.horarioGrupo.createMany({
-        data: data.horarios.map((horario) => ({
-          ...horario,
-          grupoId: parseInt(id),
-        })),
-      });
-    }
-
-    // Actualizar grupo
-    return tx.grupo.update({
-      where: { id: parseInt(id) },
-      data: {
-        nombre: data.nombre,
-        identificador: data.identificador,
-        maestroId: data.maestroId,
-      },
-      include: {
-        cursoMateria: {
-          select: {
-            curso: true,
-            materia: {
-              select: {
-                nombre: true,
-              },
-            },
-          },
-        },
-        maestro: {
-          include: {
-            usuario: {
-              select: {
-                nombre: true,
-                apellido: true,
-              },
-            },
-          },
-        },
-        horarios: true,
-      },
-    });
-  });
-
-  res.json(grupo);
-});
+);
 
 /**
  * @swagger
@@ -726,14 +738,14 @@ adminRouter.patch('/grupos/:id', validateRequest(updateGrupoSchema), async (req,
  *         schema:
  *           type: integer
  */
-adminRouter.delete('/grupos/:id', async (req, res) => {
+adminRouter.delete("/grupos/:id", async (req, res) => {
   const { id } = req.params;
 
   await prisma.grupo.delete({
     where: { id: parseInt(id) },
   });
 
-  res.json({ message: 'Group deleted successfully' });
+  res.json({ message: "Group deleted successfully" });
 });
 /**
  * @swagger
@@ -755,7 +767,7 @@ adminRouter.delete('/grupos/:id', async (req, res) => {
  *       404:
  *         description: Group not found
  */
-adminRouter.get('/grupos/:id', async (req, res) => {
+adminRouter.get("/grupos/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -764,7 +776,8 @@ adminRouter.get('/grupos/:id', async (req, res) => {
       include: {
         cursoMateria: {
           select: {
-            materiaId:true,
+            materiaId: true,
+            cursoId: true,
             curso: {
               select: {
                 nombre: true,
@@ -825,40 +838,39 @@ adminRouter.get('/grupos/:id', async (req, res) => {
     });
 
     if (!grupo) {
-      return res.status(404).json({ error: 'Grupo no encontrado' });
+      return res.status(404).json({ error: "Grupo no encontrado" });
     }
 
     // Transformar los datos al formato solicitado
     const formattedResponse = {
-      
+      cursoId: grupo.cursoMateria.cursoId,
       curso: grupo.cursoMateria.curso.nombre,
       MateriaId: grupo.cursoMateria.materiaId,
       materia: grupo.cursoMateria.materia.nombre,
       maestro: {
         nombre: grupo.maestro.usuario.nombre,
-        apellido: grupo.maestro.usuario.apellido
+        apellido: grupo.maestro.usuario.apellido,
       },
-      horarios: grupo.horarios.map(horario => ({
+      horarios: grupo.horarios.map((horario) => ({
         dia: horario.dia,
         horaInicio: horario.horaInicio,
-        horaFin: horario.horaFin
+        horaFin: horario.horaFin,
       })),
-      alumnos: grupo.alumnos.map(alumno => ({
+      alumnos: grupo.alumnos.map((alumno) => ({
         id: alumno.alumno.id,
         nombre: alumno.alumno.usuario.nombre,
         apellido: alumno.alumno.usuario.apellido,
         cuatrimestre: alumno.alumno.cuatrimestre,
-        pago: alumno.alumno.pago
-      }))
+        pago: alumno.alumno.pago,
+      })),
     };
 
     return res.status(200).json(formattedResponse);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Ocurrió un error al obtener el grupo' });
+    res.status(500).json({ error: "Ocurrió un error al obtener el grupo" });
   }
 });
-
 
 /**
  * @swagger
@@ -875,7 +887,7 @@ adminRouter.get('/grupos/:id', async (req, res) => {
  *         schema:
  *           type: integer
  */
-adminRouter.get('/grupos/curso/:cursoId', async (req, res) => {
+adminRouter.get("/grupos/curso/:cursoId", async (req, res) => {
   const { cursoId } = req.params;
 
   const grupos = await prisma.grupo.findMany({
@@ -883,9 +895,11 @@ adminRouter.get('/grupos/curso/:cursoId', async (req, res) => {
     include: {
       cursoMateria: {
         select: {
-          curso:{ select:{
-              nombre:true
-          }} ,
+          curso: {
+            select: {
+              nombre: true,
+            },
+          },
           materia: {
             select: {
               nombre: true,
@@ -909,7 +923,6 @@ adminRouter.get('/grupos/curso/:cursoId', async (req, res) => {
 
   res.json(grupos);
 });
-
 
 /**
  * @swagger
@@ -931,41 +944,44 @@ adminRouter.get('/grupos/curso/:cursoId', async (req, res) => {
  *         schema:
  *           type: integer
  */
-adminRouter.get('/grupos/curso/:cursoId/cuatrimestre/:cuatrimestre', async (req, res) => {
-  const { cursoId, cuatrimestre } = req.params;
+adminRouter.get(
+  "/grupos/curso/:cursoId/cuatrimestre/:cuatrimestre",
+  async (req, res) => {
+    const { cursoId, cuatrimestre } = req.params;
 
-  const grupos = await prisma.grupo.findMany({
-    where: {
-      cursoMateria: { cursoId: parseInt(cursoId) },
-      cuatrimestre: parseInt(cuatrimestre),
-    },
-    include: {
-      cursoMateria: {
-        select: {
-          curso: true,
-          materia: {
-            select: {
-              nombre: true,
+    const grupos = await prisma.grupo.findMany({
+      where: {
+        cursoMateria: { cursoId: parseInt(cursoId) },
+        cuatrimestre: parseInt(cuatrimestre),
+      },
+      include: {
+        cursoMateria: {
+          select: {
+            curso: true,
+            materia: {
+              select: {
+                nombre: true,
+              },
             },
           },
         },
-      },
-      maestro: {
-        include: {
-          usuario: {
-            select: {
-              nombre: true,
-              apellido: true,
+        maestro: {
+          include: {
+            usuario: {
+              select: {
+                nombre: true,
+                apellido: true,
+              },
             },
           },
         },
+        horarios: true,
       },
-      horarios: true,
-    },
-  });
+    });
 
-  res.json(grupos);
-});
+    res.json(grupos);
+  }
+);
 
 /**
  * @swagger
@@ -1019,17 +1035,17 @@ adminRouter.get('/grupos/curso/:cursoId/cuatrimestre/:cuatrimestre', async (req,
  *         description: Error interno del servidor
  */
 
-
-
 // Endpoint para agregar alumnos a un grupo
-adminRouter.post('/grupos/agregar-alumnos', async (req, res) => {
+adminRouter.post("/grupos/agregar-alumnos", async (req, res) => {
   const { groupId, studentIds } = req.body;
 
-  console.log(groupId,studentIds)
+  console.log(groupId, studentIds);
 
   // Validar entrada
   if (!groupId || !Array.isArray(studentIds) || studentIds.length === 0) {
-    return res.status(400).json({ error: 'Faltan datos o formato incorrecto.' });
+    return res
+      .status(400)
+      .json({ error: "Faltan datos o formato incorrecto." });
   }
 
   try {
@@ -1040,7 +1056,7 @@ adminRouter.post('/grupos/agregar-alumnos', async (req, res) => {
     });
 
     if (!group) {
-      return res.status(404).json({ error: 'Grupo no encontrado.' });
+      return res.status(404).json({ error: "Grupo no encontrado." });
     }
 
     // Validar que los alumnos pertenezcan al curso del grupo
@@ -1057,7 +1073,7 @@ adminRouter.post('/grupos/agregar-alumnos', async (req, res) => {
 
     if (invalidStudents.length > 0) {
       return res.status(400).json({
-        error: 'Algunos alumnos no pertenecen al curso del grupo.',
+        error: "Algunos alumnos no pertenecen al curso del grupo.",
         invalidStudentIds: invalidStudents.map((s) => s.id),
       });
     }
@@ -1074,12 +1090,15 @@ adminRouter.post('/grupos/agregar-alumnos', async (req, res) => {
 
     await prisma.$transaction(transactions);
 
-    res.status(200).json({ message: 'Alumnos agregados al grupo exitosamente.' });
+    res
+      .status(200)
+      .json({ message: "Alumnos agregados al grupo exitosamente." });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Ocurrió un error al agregar alumnos al grupo.' });
+    res
+      .status(500)
+      .json({ error: "Ocurrió un error al agregar alumnos al grupo." });
   }
 });
-
 
 export default adminRouter;
