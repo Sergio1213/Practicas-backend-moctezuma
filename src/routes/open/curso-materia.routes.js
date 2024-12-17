@@ -75,11 +75,9 @@ cursoMateriaRoutesOpen.get("/:id", async (req, res) => {
 
     res.status(200).json(cursoMateria);
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        error: "An error occurred while retrieving the CursoMateria relation.",
-      });
+    res.status(500).json({
+      error: "An error occurred while retrieving the CursoMateria relation.",
+    });
   }
 });
 
@@ -147,16 +145,15 @@ cursoMateriaRoutesOpen.get("/curso/:cursoId", async (req, res) => {
     res.status(200).json({
       curso: curso.nombre,
       materias: cursoMaterias.map((cm) => ({
+        cursoMateriaId: cm.id,
         materia: cm.materia, // Información completa de la materia
         cuatrimestre: cm.cuatrimestre, // Agregar el cuatrimestre
       })),
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        error: "An error occurred while retrieving the CursoMateria relations.",
-      });
+    res.status(500).json({
+      error: "An error occurred while retrieving the CursoMateria relations.",
+    });
   }
 });
 
@@ -231,11 +228,9 @@ cursoMateriaRoutesOpen.get("/materia/:materiaId", async (req, res) => {
       cursos: cursoMaterias.map((cm) => cm.curso),
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        error: "An error occurred while retrieving the CursoMateria relations.",
-      });
+    res.status(500).json({
+      error: "An error occurred while retrieving the CursoMateria relations.",
+    });
   }
 });
 

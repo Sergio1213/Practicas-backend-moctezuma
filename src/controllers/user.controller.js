@@ -204,17 +204,17 @@ export const getAlumnosDeCurso = async (req, res) => {
       return res.status(404).json({ message: "Curso no encontrado" });
     }
 
-    // Opcional: si quieres un formato específico
+    // Formato de los alumnos activos
     const alumnosActivos = curso.alumnos.map((alumno) => ({
-      id: alumno.id,
+      usuarioId: alumno.usuarioId, // Asegúrate de que esto es el campo correcto
       nombre: alumno.usuario.nombre,
       apellido: alumno.usuario.apellido,
-      status: alumno.usuario.status,
+      alumnoId: alumno.id, // Aquí tomas el id del alumno
+      cuatrimestre: alumno.cuatrimestre, // Si el cuatrimestre está en el alumno
+      pago: alumno.pago, // Si el pago está en el alumno
     }));
 
-    return res
-      .status(200)
-      .json({ curso: curso.nombre, alumnos: alumnosActivos });
+    return res.status(200).json(alumnosActivos);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al obtener los alumnos del curso" });
@@ -281,5 +281,40 @@ export const getAlumnosDeMateria = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error retrieving students for the subject" });
+  }
+};
+
+export const togglePaymentStatus = async (req, res) => {
+  const { alumnoId } = req.params;
+
+  try {
+    // Busca al alumno por su ID
+    const alumnoActual = await prisma.alumno.findUnique({
+      where: { id: parseInt(alumnoId) },
+    });
+
+    // Verifica si el alumno existe
+    if (!alumnoActual) {
+      return res.status(404).json({ message: "Alumno no encontrado" });
+    }
+
+    // Alterna el estado del campo 'pago'
+    const alumnoActualizado = await prisma.alumno.update({
+      where: { id: parseInt(alumnoId) },
+      data: { pago: !alumnoActual.pago },
+    });
+
+    // Devuelve la respuesta con el nuevo estado
+    return res.status(200).json({
+      message: `El estado de pago se actualizó a ${
+        alumnoActualizado.pago ? "true" : "false"
+      }`,
+      alumno: alumnoActualizado,
+    });
+  } catch (error) {
+    console.error("Error al alternar el estado de pago:", error);
+    return res
+      .status(500)
+      .json({ message: "Error al alternar el estado de pago" });
   }
 };

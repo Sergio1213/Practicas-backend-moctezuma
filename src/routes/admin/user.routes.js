@@ -1,7 +1,20 @@
-import { Router } from 'express';
-import { createUser, updateUser, deleteUser, getAllAlumnos, getAllMaestros, getAlumnosDeCurso, getAlumnosDeCursoYCuatrimestre, getAlumnosDeMateria } from '../../controllers/user.controller.js';
-import { validateRequest } from '../../middleware/validation.middleware.js';
-import { createUserSchema, updateUserSchema } from '../../schemas/user.schema.js';
+import { Router } from "express";
+import {
+  createUser,
+  updateUser,
+  deleteUser,
+  getAllAlumnos,
+  getAllMaestros,
+  getAlumnosDeCurso,
+  getAlumnosDeCursoYCuatrimestre,
+  getAlumnosDeMateria,
+  togglePaymentStatus,
+} from "../../controllers/user.controller.js";
+import { validateRequest } from "../../middleware/validation.middleware.js";
+import {
+  createUserSchema,
+  updateUserSchema,
+} from "../../schemas/user.schema.js";
 
 const router = Router();
 
@@ -56,7 +69,7 @@ const router = Router();
  *       500:
  *         description: Server error
  */
-router.post('/', validateRequest(createUserSchema), createUser);
+router.post("/", validateRequest(createUserSchema), createUser);
 
 /**
  * @swagger
@@ -97,7 +110,7 @@ router.post('/', validateRequest(createUserSchema), createUser);
  *       500:
  *         description: Server error
  */
-router.patch('/:id', validateRequest(updateUserSchema), updateUser);
+router.patch("/:id", validateRequest(updateUserSchema), updateUser);
 
 /**
  * @swagger
@@ -122,7 +135,7 @@ router.patch('/:id', validateRequest(updateUserSchema), updateUser);
  *       500:
  *         description: Server error
  */
-router.delete('/:id', deleteUser);
+router.delete("/:id", deleteUser);
 
 /**
  * @swagger
@@ -154,7 +167,7 @@ router.delete('/:id', deleteUser);
  *       500:
  *         description: Server error
  */
-router.get('/alumnos', getAllAlumnos);
+router.get("/alumnos", getAllAlumnos);
 
 /**
  * @swagger
@@ -186,7 +199,7 @@ router.get('/alumnos', getAllAlumnos);
  *       500:
  *         description: Server error
  */
-router.get('/maestros', getAllMaestros);
+router.get("/maestros", getAllMaestros);
 /**
  * @swagger
  * /api/admin/users/curso/{cursoId}:
@@ -226,7 +239,7 @@ router.get('/maestros', getAllMaestros);
  *       500:
  *         description: Server error
  */
-router.get('/curso/:cursoId', getAlumnosDeCurso);
+router.get("/curso/:cursoId", getAlumnosDeCurso);
 /**
  * @swagger
  * /api/admin/users/curso/{cursoId}/cuatrimestre/{cuatrimestre}:
@@ -272,7 +285,10 @@ router.get('/curso/:cursoId', getAlumnosDeCurso);
  *       500:
  *         description: Server error
  */
-router.get('/curso/:cursoId/cuatrimestre/:cuatrimestre', getAlumnosDeCursoYCuatrimestre);
+router.get(
+  "/curso/:cursoId/cuatrimestre/:cuatrimestre",
+  getAlumnosDeCursoYCuatrimestre
+);
 /**
  * @swagger
  *  api/admin/users/alumnos/materia/{materiaId}:
@@ -294,7 +310,73 @@ router.get('/curso/:cursoId/cuatrimestre/:cuatrimestre', getAlumnosDeCursoYCuatr
  *       500:
  *         description: Server error
  */
-router.get('/alumnos/materia/:materiaId', getAlumnosDeMateria);
+router.get("/alumnos/materia/:materiaId", getAlumnosDeMateria);
 
+/**
+ * @swagger
+ * /api/alumno/{alumnoId}/toggle-pay:
+ *   post:
+ *     summary: Toggle the payment status of a student
+ *     tags: [Admin Users]
+ *     parameters:
+ *       - in: path
+ *         name: alumnoId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the student
+ *     responses:
+ *       200:
+ *         description: Payment status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: El estado de pago se actualizó a true
+ *                 alumno:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     usuarioId:
+ *                       type: integer
+ *                       example: 3
+ *                     cuatrimestre:
+ *                       type: integer
+ *                       example: 1
+ *                     pago:
+ *                       type: boolean
+ *                       example: true
+ *                     cursoId:
+ *                       type: integer
+ *                       example: 2
+ *       404:
+ *         description: Student not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Alumno no encontrado
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Error al alternar el estado de pago
+ *
+ */
+
+router.post("/alumnos/:alumnoId/toggle-pay", togglePaymentStatus);
 
 export default router;
